@@ -116,6 +116,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text or ""
     bot_username = context.bot.username
 
+    logger.info(f"Сообщение: '{user_text}'")
+    logger.info(f"Тип чата: {update.effective_chat.type}")
+    logger.info(f"Reply to: {update.message.reply_to_message}")
+    if update.message.reply_to_message and update.message.reply_to_message.from_user:
+        logger.info(f"Reply from username: {update.message.reply_to_message.from_user.username}")
+    logger.info(f"Bot username: {bot_username}")
+
     # В группах реагируем на упоминание или цитирование сообщений бота
     if update.effective_chat.type in ["group", "supergroup"]:
         is_mention = f"@{bot_username}" in user_text
