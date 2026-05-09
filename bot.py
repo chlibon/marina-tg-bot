@@ -175,8 +175,7 @@ def main():
     app.add_handler(CommandHandler("clear", cmd_clear))
     app.add_handler(CommandHandler("help",  cmd_help))
     app.add_handler(CommandHandler("about", cmd_about))
-    mention_or_private = filters.ChatType.PRIVATE | filters.Entity("mention")
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & mention_or_private, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен...")
     app.run_polling(drop_pending_updates=True)
