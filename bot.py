@@ -113,7 +113,7 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── Обработчик сообщений ─────────────────────────────────────────────────────
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user_text = update.message.text
+    user_text = update.message.text or ""
     bot_username = context.bot.username
 
     # В группах реагируем на упоминание или цитирование сообщений бота
@@ -121,12 +121,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_mention = f"@{bot_username}" in user_text
         is_reply_to_bot = (
             update.message.reply_to_message is not None
+            and update.message.reply_to_message.from_user is not None
             and update.message.reply_to_message.from_user.username == bot_username
         )
         if not is_mention and not is_reply_to_bot:
             return
         # Убираем упоминание из текста чтобы не путать AI
         user_text = user_text.replace(f"@{bot_username}", "").strip()
+
+    # Если текст пустой — просим уточнить
+    if not user_text:
+        await update.message.reply_text("Напиши что ты хочешь узнать 😊")
+        return
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
