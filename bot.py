@@ -116,9 +116,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     bot_username = context.bot.username
 
-    # В группах реагируем только на упоминание бота
+    # В группах реагируем на упоминание или цитирование сообщений бота
     if update.effective_chat.type in ["group", "supergroup"]:
-        if f"@{bot_username}" not in user_text:
+        is_mention = f"@{bot_username}" in user_text
+        is_reply_to_bot = (
+            update.message.reply_to_message is not None
+            and update.message.reply_to_message.from_user.username == bot_username
+        )
+        if not is_mention and not is_reply_to_bot:
             return
         # Убираем упоминание из текста чтобы не путать AI
         user_text = user_text.replace(f"@{bot_username}", "").strip()
