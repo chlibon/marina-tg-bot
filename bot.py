@@ -81,7 +81,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
+    chat_id = update.effective_user.id
     conversation_history.pop(chat_id, None)
     await update.message.reply_text("🗑️ История диалога очищена. Начнём заново!")
 
