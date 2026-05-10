@@ -1,5 +1,8 @@
 import os
 import logging
+import re
+import json
+from datetime import datetime, timedelta
 from telegram import Update, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
@@ -30,6 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
+REMIND_KEYWORDS = ["напомни", "напоминай", "remind", "напомнить"]
 
 # Хранилище истории: { chat_id: [ {role, content}, ... ] }
 conversation_history: dict[int, list[dict]] = {}
@@ -111,6 +115,41 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ─── Обработчик сообщений ─────────────────────────────────────────────────────
+def parse_reminder(text: str) -> dict | None:
+    """Просим Groq распарсить напоминание, возвращает {seconds, reminder_text} или None"""
+    try:
+        response = groq_client.chat.completions.create(
+            model=MODEL,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Из этого сообщения извлеки время напоминания и текст напоминания: '{text}'\n"
+                    "Ответь ТОЛЬКО валидным JSON без пояснений и markdown:\n"
+                    '{"seconds": <число секунд от сейчас>, "reminder_text": "<текст напоминания>"}\n'
+                    "Если не можешь распарсить — ответь: {\"error\": \"cant parse\"}"
+                )
+            }],
+            temperature=0,
+            max_tokens=100,
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json|```", "", raw).strip()
+        data = json.loads(raw)
+        if "error" in data or "seconds" not in data:
+            return None
+        return data
+    except Exception as e:
+        logger.error(f"Ошибка парсинга напоминания: {e}")
+        return None
+
+
+async def send_reminder(context):
+    """Отправляет напоминание пользователю"""
+    job = context.job
+    chat_id = job.data["chat_id"]
+    reminder_text = job.data["reminder_text"]
+    await context.bot.send_message(chat_id=chat_id, text=f"⏰ Напоминание: {reminder_text}")
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_text = update.message.text or ""
@@ -140,7 +179,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_text:
         await update.message.reply_text("Напиши что ты хочешь узнать 😊")
         return
-
+    # Проверяем не напоминание ли это
+    if any(kw in user_text.lower() for kw in REMIND_KEYWORDS):
+        parsed = parse_reminder(user_text)
+        if parsed:
+            seconds = int(parsed["seconds"])
+            reminder_text = parsed["reminder_text"]
+            context.job_queue.run_once(
+                send_reminder,
+                when=seconds,
+                data={"chat_id": update.effective_user.id, "reminder_text": reminder_text},
+            )
+            minutes = seconds // 60
+            hours = minutes // 60
+            if hours > 0:
+                time_str = f"{hours} ч {minutes % 60} мин"
+            elif minutes > 0:
+                time_str = f"{minutes} мин"
+            else:
+                time_str = f"{seconds} сек"
+            await update.message.reply_text(f"✅ Напомню через {time_str}: {reminder_text}")
+            return
+        else:
+            await update.message.reply_text("⚠️ Не смог распознать время. Попробуй например: 'напомни через 30 минут позвонить маме'")
+            return
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
     try:
