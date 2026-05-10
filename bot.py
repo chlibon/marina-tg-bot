@@ -147,6 +147,8 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
     """Парсит время из текста напоминания"""
     now = get_user_now(user_id)
     seconds = None
+
+    logger.info(f"parse_reminder: now={now}, user_id={user_id}, offset={user_timezones.get(user_id, 3)}")
     
     # Относительное время — через X минут/часов/дней
     match = re.search(r'через\s+(\d+)\s*(секунд|минут|час|часа|часов|день|дня|дней)', text.lower())
