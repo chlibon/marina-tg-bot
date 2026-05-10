@@ -39,7 +39,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 def get_db():
     import urllib.parse
     url = urllib.parse.urlparse(DATABASE_URL)
-    return pg8000.native.Connection(
+    return pg8000.connect(
         user=url.username,
         password=url.password,
         host=url.hostname,
@@ -49,37 +49,42 @@ def get_db():
     )
 
 def init_db():
-    """Создаёт таблицы если их нет"""
-    with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS user_settings (
-                    user_id BIGINT PRIMARY KEY,
-                    timezone_offset INTEGER DEFAULT 3
-                )
-            """)
-        conn.commit()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id BIGINT PRIMARY KEY,
+            timezone_offset INTEGER DEFAULT 3
+        )
+    """)
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def get_timezone(user_id: int) -> int:
     try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT timezone_offset FROM user_settings WHERE user_id = %s", (user_id,))
-                row = cur.fetchone()
-                return row[0] if row else 3
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT timezone_offset FROM user_settings WHERE user_id = %s", (user_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return row[0] if row else 3
     except Exception:
         return 3
 
 def set_timezone(user_id: int, offset: int):
     try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO user_settings (user_id, timezone_offset)
-                    VALUES (%s, %s)
-                    ON CONFLICT (user_id) DO UPDATE SET timezone_offset = %s
-                """, (user_id, offset, offset))
-            conn.commit()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_settings (user_id, timezone_offset)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET timezone_offset = %s
+        """, (user_id, offset, offset))
+        conn.commit()
+        cursor.close()
+        conn.close()
     except Exception as e:
         logger.error(f"Ошибка записи таймзоны: {e}")
 
