@@ -147,8 +147,63 @@ async def send_reminder(context):
     """Отправляет напоминание пользователю"""
     job = context.job
     chat_id = job.data["chat_id"]
+    user_id = job.data["user_id"]
+    username = job.data.get("username")
     reminder_text = job.data["reminder_text"]
-    await context.bot.send_message(chat_id=chat_id, text=f"⏰ Напоминание: {reminder_text}")
+    
+    if username:
+        text = f"⏰ @{username}, напоминание: {reminder_text}"
+    else:
+        text = f"⏰ <a href='tg://user?id={user_id}'>{job.data['first_name']}</a>, напоминание: {reminder_text}"
+    
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+
+async def cmd_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает список активных напоминаний"""
+    user_id = update.effective_user.id
+    jobs = context.job_queue.get_jobs_by_name(str(user_id))
+    
+    if not jobs:
+        await update.message.reply_text("У тебя нет активных напоминаний.")
+        return
+    
+    text = "⏰ Твои напоминания:\n\n"
+    for i, job in enumerate(jobs, 1):
+        seconds_left = int((job.next_t - datetime.now(job.next_t.tzinfo)).total_seconds())
+        minutes = seconds_left // 60
+        hours = minutes // 60
+        if hours > 0:
+            time_str = f"через {hours} ч {minutes % 60} мин"
+        elif minutes > 0:
+            time_str = f"через {minutes} мин"
+        else:
+            time_str = f"через {seconds_left} сек"
+        text += f"{i}. {job.data['reminder_text']} — {time_str}\n"
+    
+    text += "\nЧтобы отменить напиши /cancel 1 (или другой номер)"
+    await update.message.reply_text(text)
+
+
+async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отменяет напоминание по номеру"""
+    user_id = update.effective_user.id
+    jobs = context.job_queue.get_jobs_by_name(str(user_id))
+    
+    if not jobs:
+        await update.message.reply_text("У тебя нет активных напоминаний.")
+        return
+    
+    try:
+        num = int(context.args[0]) - 1
+        if num < 0 or num >= len(jobs):
+            raise ValueError
+    except (IndexError, ValueError):
+        await update.message.reply_text(f"Укажи номер от 1 до {len(jobs)}. Например: /cancel 1")
+        return
+    
+    reminder_text = jobs[num].data['reminder_text']
+    jobs[num].schedule_removal()
+    await update.message.reply_text(f"✅ Напоминание отменено: {reminder_text}")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -189,7 +244,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.job_queue.run_once(
                 send_reminder,
                 when=seconds,
-                data={"chat_id": update.effective_user.id, "reminder_text": reminder_text},
+                data={
+                    "chat_id": update.effective_chat.id,
+                    "user_id": update.effective_user.id,
+                    "username": update.effective_user.username,
+                    "first_name": update.effective_user.first_name or "друг",
+                    "reminder_text": reminder_text,
+                },
+                name=str(update.effective_user.id),
             )
             minutes = seconds // 60
             hours = minutes // 60
@@ -223,6 +285,8 @@ async def post_init(app):
         BotCommand("clear", "Очистить историю диалога"),
         BotCommand("help",  "Помощь"),
         BotCommand("about", "О боте"),
+	BotCommand("reminders", "Список активных напоминаний"),
+        BotCommand("cancel", "Отменить напоминание — /cancel 1"),
     ])
 
 
@@ -238,6 +302,8 @@ def main():
     app.add_handler(CommandHandler("clear", cmd_clear))
     app.add_handler(CommandHandler("help",  cmd_help))
     app.add_handler(CommandHandler("about", cmd_about))
+    app.add_handler(CommandHandler("reminders", cmd_reminders))
+    app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен...")
