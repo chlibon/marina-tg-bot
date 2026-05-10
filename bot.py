@@ -38,6 +38,14 @@ REMIND_KEYWORDS = ["напомни", "напоминай", "remind", "напом
 # Хранилище истории: { chat_id: [ {role, content}, ... ] }
 conversation_history: dict[int, list[dict]] = {}
 
+# Хранилище часовых поясов: { user_id: int }
+user_timezones: dict[int, int] = {}
+
+def get_user_now(user_id: int) -> datetime:
+    """Возвращает текущее время для пользователя с учётом его часового пояса"""
+    offset = user_timezones.get(user_id, 3)  # по умолчанию UTC+3 (Москва)
+    return datetime.now() + timedelta(hours=offset)
+
 
 # ─── Вспомогательные функции ──────────────────────────────────────────────────
 def get_history(chat_id: int) -> list[dict]:
@@ -113,42 +121,103 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "одной из лучших открытых моделей."
     )
 
+async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not context.args:
+        current = user_timezones.get(user_id, 3)
+        await update.message.reply_text(
+            f"🕐 Твой часовой пояс: UTC+{current}\n\n"
+            "Чтобы изменить напиши /timezone 5 (для Екатеринбурга)\n"
+            "Примеры: Москва = 3, Екб = 5, Новосибирск = 7, Владивосток = 10"
+        )
+        return
+    try:
+        offset = int(context.args[0])
+        if offset < -12 or offset > 14:
+            raise ValueError
+        user_timezones[user_id] = offset
+        await update.message.reply_text(f"✅ Часовой пояс установлен: UTC+{offset}")
+    except ValueError:
+        await update.message.reply_text("Укажи число от -12 до 14. Например: /timezone 5")
+
 
 # ─── Обработчик сообщений ─────────────────────────────────────────────────────
-def parse_reminder(text: str) -> dict | None:
-    """Просим Groq распарсить напоминание, возвращает {seconds, reminder_text} или None"""
+def parse_reminder(text: str, user_id: int) -> dict | None:
+    """Парсит время из текста напоминания"""
+    now = get_user_now(user_id)
+    seconds = None
+    
+    # Относительное время — через X минут/часов/дней
+    match = re.search(r'через\s+(\d+)\s*(секунд|минут|час|часа|часов|день|дня|дней)', text.lower())
+    if match:
+        amount = int(match.group(1))
+        unit = match.group(2)
+        if 'секунд' in unit:
+            seconds = amount
+        elif 'минут' in unit:
+            seconds = amount * 60
+        elif 'час' in unit:
+            seconds = amount * 3600
+        elif 'ден' in unit or 'день' in unit or 'дня' in unit:
+            seconds = amount * 86400
+
+    # Конкретное время — в HH:MM или в H:MM
+    if seconds is None:
+        match = re.search(r'в\s+(\d{1,2}):(\d{2})', text.lower())
+        if match:
+            hour, minute = int(match.group(1)), int(match.group(2))
+            target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if target <= now:
+                target += timedelta(days=1)
+            seconds = int((target - now).total_seconds())
+
+    # Полночь
+    if seconds is None and 'полноч' in text.lower():
+        target = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if target <= now:
+            target += timedelta(days=1)
+        seconds = int((target - now).total_seconds())
+
+    # Полдень
+    if seconds is None and 'полден' in text.lower():
+        target = now.replace(hour=12, minute=0, second=0, microsecond=0)
+        if target <= now:
+            target += timedelta(days=1)
+        seconds = int((target - now).total_seconds())
+
+    # Завтра в HH:MM
+    if seconds is None:
+        match = re.search(r'завтра\s+в\s+(\d{1,2}):(\d{2})', text.lower())
+        if match:
+            hour, minute = int(match.group(1)), int(match.group(2))
+            target = (now + timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+            seconds = int((target - now).total_seconds())
+
+    if seconds is None:
+        return None
+
+    # Groq только для текста напоминания
     try:
         response = groq_client.chat.completions.create(
             model=MODEL,
             messages=[{
                 "role": "user",
                 "content": (
-                    f"Текущее время и дата: {(datetime.now() + timedelta(hours=5)).strftime('%Y-%m-%d %H:%M')}. Часовой пояс UTC+5.\n"
-                    f"Из этого сообщения извлеки время напоминания и текст напоминания: '{text}'\n"
-                    "Правила определения времени:\n"
-                    "- 'через 30 минут', 'через 2 часа' — относительное время от сейчас\n"
-                    "- 'в 18:00', 'в 9 утра', 'в полночь', 'в 00:02', 'в полдень' — конкретное время СЕГОДНЯ или ЗАВТРА если это время уже прошло\n"
-                    "- 'завтра в 10:00', '25 мая в 15:00' — конкретная дата и время\n"
-                    "- полночь = 00:00, полдень = 12:00\n"
-                    "- ВАЖНО: '00:02' или 'в 00:02' — это время суток 0 часов 2 минуты, НЕ 'через 2 минуты'\n"
-                    "- Если указанное время уже прошло сегодня — добавь 24 часа\n"
-                    "Ответь ТОЛЬКО валидным JSON без пояснений и markdown:\n"
-                    '{"seconds": <число секунд от текущего момента до напоминания>, "reminder_text": "<текст напоминания, перефразированный от лица бота: если пользователь написал напомни мне сделать X — пиши сделать X, если напомни чтобы я позвонил — пиши чтобы ты позвонил, убери слова напомни/remind из текста>"}\n'
-                    "Если не можешь распарсить — ответь: {\"error\": \"cant parse\"}"
+                    f"Из этого сообщения извлеки только текст напоминания (без указания времени): '{text}'\n"
+                    "Перефразируй от лица бота: 'напомни мне сделать X' → 'сделать X', "
+                    "'напомни чтобы я позвонил' → 'чтобы ты позвонил'.\n"
+                    "Убери слова: напомни, remind, через X минут/часов, в HH:MM, завтра, полночь, полдень.\n"
+                    "Ответь ТОЛЬКО текстом напоминания, без пояснений."
                 )
             }],
             temperature=0,
             max_tokens=100,
         )
-        raw = response.choices[0].message.content.strip()
-        raw = re.sub(r"```json|```", "", raw).strip()
-        data = json.loads(raw)
-        if "error" in data or "seconds" not in data:
-            return None
-        return data
-    except Exception as e:
-        logger.error(f"Ошибка парсинга напоминания: {e}")
-        return None
+        reminder_text = response.choices[0].message.content.strip()
+    except Exception:
+        reminder_text = text
+
+    return {"seconds": seconds, "reminder_text": reminder_text}
 
 
 async def send_reminder(context):
@@ -245,7 +314,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	
     # Проверяем не напоминание ли это
     if any(kw in user_text.lower() for kw in REMIND_KEYWORDS):
-        parsed = parse_reminder(user_text)
+        parsed = parse_reminder(user_text, update.effective_user.id)
         if parsed:
             seconds = int(parsed["seconds"])
             reminder_text = parsed["reminder_text"]
@@ -288,14 +357,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ─── Запуск ───────────────────────────────────────────────────────────────────
 async def post_init(app):
+    # Команды для лички
     await app.bot.set_my_commands([
-        BotCommand("start", "Начать / главное меню"),
-        BotCommand("clear", "Очистить историю диалога"),
-        BotCommand("help",  "Помощь"),
-        BotCommand("about", "О боте"),
-	BotCommand("reminders", "Список активных напоминаний"),
-        BotCommand("cancel", "Отменить напоминание — /cancel 1"),
+        BotCommand("start",     "Начать / главное меню"),
+        BotCommand("clear",     "Очистить историю диалога"),
+        BotCommand("reminders", "Список активных напоминаний"),
+        BotCommand("cancel",    "Отменить напоминание — /cancel 1"),
+        BotCommand("timezone",  "Установить часовой пояс — /timezone 5"),
+        BotCommand("help",      "Помощь"),
+        BotCommand("about",     "О боте"),
     ])
+    
+    # Команды для групп — только самое нужное
+    await app.bot.set_my_commands(
+        [
+            BotCommand("cancel",   "Отменить напоминание — /cancel 1"),
+            BotCommand("timezone", "Установить часовой пояс — /timezone 5"),
+        ],
+        scope={"type": "all_group_chats"}
+    )
 
 
 def main():
@@ -313,6 +393,7 @@ def main():
     app.add_handler(CommandHandler("reminders", cmd_reminders))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(CommandHandler("timezone", cmd_timezone))
 
     logger.info("Бот запущен...")
     app.run_polling(drop_pending_updates=True)
