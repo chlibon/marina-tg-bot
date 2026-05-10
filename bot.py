@@ -252,8 +252,10 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
         match = re.search(r'завтра\s+в\s+(\d{1,2}):(\d{2})', text.lower())
         if match:
             hour, minute = int(match.group(1)), int(match.group(2))
-            tomorrow = now.date() + timedelta(days=1)
-            target = datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, minute)
+            # now — это локальное время пользователя
+            # завтра = следующие сутки начиная с 00:00
+            tomorrow_start = datetime(now.year, now.month, now.day, 0, 0, 0) + timedelta(days=1)
+            target = tomorrow_start.replace(hour=hour, minute=minute)
             seconds = int((target - now).total_seconds())
 
     # Дата + время — "25 мая в 15:00" — тоже ДО просто "в HH:MM"
