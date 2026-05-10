@@ -167,9 +167,10 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
         match = re.search(r'в\s+(\d{1,2}):(\d{2})', text.lower())
         if match:
             hour, minute = int(match.group(1)), int(match.group(2))
-            target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            today = now.date()
+            target = datetime(today.year, today.month, today.day, hour, minute)
             if target <= now:
-                target += timedelta(days=1)
+                target = datetime(today.year, today.month, today.day + 1, hour, minute)
             seconds = int((target - now).total_seconds())
 
     # Полночь
@@ -191,10 +192,11 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
         match = re.search(r'завтра\s+в\s+(\d{1,2}):(\d{2})', text.lower())
         if match:
             hour, minute = int(match.group(1)), int(match.group(2))
-            target = (now + timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+            tomorrow = now.date() + timedelta(days=1)
+            target = datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, minute)
             seconds = int((target - now).total_seconds())
 
-    # Дата + время — "25 мая в 15:00", "5 января в 9:00"
+    # Дата + время — "25 мая в 15:00"
     if seconds is None:
         months = {
             'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4,
@@ -210,9 +212,10 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
             month = months[match.group(2)]
             hour = int(match.group(3))
             minute = int(match.group(4))
-            target = now.replace(month=month, day=day, hour=hour, minute=minute, second=0, microsecond=0)
+            year = now.year
+            target = datetime(year, month, day, hour, minute)
             if target <= now:
-                target = target.replace(year=now.year + 1)
+                target = datetime(year + 1, month, day, hour, minute)
             seconds = int((target - now).total_seconds())
 
     if seconds is None:
