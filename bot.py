@@ -37,16 +37,7 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 def get_db():
-    import urllib.parse
-    url = urllib.parse.urlparse(DATABASE_URL)
-    return pg8000.connect(
-        user=url.username,
-        password=url.password,
-        host=url.hostname,
-        port=url.port or 5432,
-        database=url.path.lstrip("/"),
-        ssl_context=True,
-    )
+    return pg8000.connect(dsn=DATABASE_URL, ssl_context=True)
 
 def init_db():
     conn = get_db()
