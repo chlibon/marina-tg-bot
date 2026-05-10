@@ -179,7 +179,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_text:
         await update.message.reply_text("Напиши что ты хочешь узнать 😊")
         return
-    logger.info(f"Проверка на напоминание: '{user_text.lower()}', ключевые слова: {REMIND_KEYWORDS}")
+	logger.info(f"Проверка на напоминание: '{user_text.lower()}', ключевые слова: {REMIND_KEYWORDS}")
     # Проверяем не напоминание ли это
     if any(kw in user_text.lower() for kw in REMIND_KEYWORDS):
         parsed = parse_reminder(user_text)
