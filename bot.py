@@ -44,7 +44,8 @@ user_timezones: dict[int, int] = {}
 def get_user_now(user_id: int) -> datetime:
     """Возвращает текущее время для пользователя с учётом его часового пояса"""
     offset = user_timezones.get(user_id, 3)  # по умолчанию UTC+3 (Москва)
-    return datetime.now() + timedelta(hours=offset)
+    # datetime.utcnow() — всегда UTC независимо от сервера
+    return datetime.utcnow() + timedelta(hours=offset)
 
 
 # ─── Вспомогательные функции ──────────────────────────────────────────────────
@@ -357,24 +358,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ─── Запуск ───────────────────────────────────────────────────────────────────
 async def post_init(app):
+    from telegram.constants import BotCommandScopeType
+    from telegram import BotCommandScopeDefault, BotCommandScopeAllGroupChats
+
     # Команды для лички
-    await app.bot.set_my_commands([
-        BotCommand("start",     "Начать / главное меню"),
-        BotCommand("clear",     "Очистить историю диалога"),
-        BotCommand("reminders", "Список активных напоминаний"),
-        BotCommand("cancel",    "Отменить напоминание — /cancel 1"),
-        BotCommand("timezone",  "Установить часовой пояс — /timezone 5"),
-        BotCommand("help",      "Помощь"),
-        BotCommand("about",     "О боте"),
-    ])
-    
+    await app.bot.set_my_commands(
+        [
+            BotCommand("start",     "Начать / главное меню"),
+            BotCommand("clear",     "Очистить историю диалога"),
+            BotCommand("reminders", "Список активных напоминаний"),
+            BotCommand("cancel",    "Отменить напоминание — /cancel 1"),
+            BotCommand("timezone",  "Установить часовой пояс — /timezone 5"),
+            BotCommand("help",      "Помощь"),
+            BotCommand("about",     "О боте"),
+        ],
+        scope=BotCommandScopeDefault()
+    )
+
     # Команды для групп — только самое нужное
     await app.bot.set_my_commands(
         [
             BotCommand("cancel",   "Отменить напоминание — /cancel 1"),
             BotCommand("timezone", "Установить часовой пояс — /timezone 5"),
         ],
-        scope={"type": "all_group_chats"}
+        scope=BotCommandScopeAllGroupChats()
     )
 
 
