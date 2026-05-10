@@ -367,8 +367,8 @@ async def post_init(app):
             BotCommand("start",     "Начать / главное меню"),
             BotCommand("clear",     "Очистить историю диалога"),
             BotCommand("reminders", "Список активных напоминаний"),
-            BotCommand("cancel",    "Отменить напоминание — /cancel 1"),
-            BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone 5"),
+            BotCommand("cancel",    "Отменить напоминание — /cancel #"),
+            BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
         ],
@@ -378,8 +378,10 @@ async def post_init(app):
     # Команды для групп — только самое нужное
     await app.bot.set_my_commands(
         [
-            BotCommand("cancel",   "Отменить напоминание — /cancel 1"),
-            BotCommand("timezone", "Установить часовой пояс — /timezone 5"),
+	    BotCommand("timezone", "Установить часовой пояс для напоминаний — /timezone #"),
+	    BotCommand("reminders", "Список активных напоминаний"),
+            BotCommand("cancel",   "Отменить напоминание — /cancel #"),
+            
         ],
         scope=BotCommandScopeAllGroupChats()
     )
