@@ -368,7 +368,7 @@ async def post_init(app):
             BotCommand("clear",     "Очистить историю диалога"),
             BotCommand("reminders", "Список активных напоминаний"),
             BotCommand("cancel",    "Отменить напоминание — /cancel 1"),
-            BotCommand("timezone",  "Установить часовой пояс — /timezone 5"),
+            BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone 5"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
         ],
