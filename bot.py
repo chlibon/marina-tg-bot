@@ -231,7 +231,6 @@ def main():
         ApplicationBuilder()
         .token(TELEGRAM_TOKEN)
         .post_init(post_init)
-        .job_queue(True)
         .build()
     )
 
