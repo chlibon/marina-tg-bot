@@ -2,8 +2,7 @@ import os
 import logging
 import re
 import json
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import pg8000
 from datetime import datetime, timedelta
 from telegram import Update, BotCommand
 from telegram.ext import (
@@ -38,7 +37,16 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 def get_db():
-    return psycopg2.connect(DATABASE_URL)
+    import urllib.parse
+    url = urllib.parse.urlparse(DATABASE_URL)
+    return pg8000.native.Connection(
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port or 5432,
+        database=url.path.lstrip("/"),
+        ssl_context=True,
+    )
 
 def init_db():
     """Создаёт таблицы если их нет"""
