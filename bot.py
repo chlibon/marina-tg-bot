@@ -164,17 +164,6 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
         elif 'ден' in unit or 'день' in unit or 'дня' in unit:
             seconds = amount * 86400
 
-    # Конкретное время — в HH:MM или в H:MM
-    if seconds is None:
-        match = re.search(r'в\s+(\d{1,2}):(\d{2})', text.lower())
-        if match:
-            hour, minute = int(match.group(1)), int(match.group(2))
-            today = now.date()
-            target = datetime(today.year, today.month, today.day, hour, minute)
-            if target <= now:
-                target = datetime(today.year, today.month, today.day + 1, hour, minute)
-            seconds = int((target - now).total_seconds())
-
     # Полночь
     if seconds is None and 'полноч' in text.lower():
         target = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -189,13 +178,25 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
             target += timedelta(days=1)
         seconds = int((target - now).total_seconds())
 
-    # Завтра в HH:MM
+
+    # Завтра в HH:MM — ОБЯЗАТЕЛЬНО ДО блока "в HH:MM"
     if seconds is None:
         match = re.search(r'завтра\s+в\s+(\d{1,2}):(\d{2})', text.lower())
         if match:
             hour, minute = int(match.group(1)), int(match.group(2))
             tomorrow = now.date() + timedelta(days=1)
             target = datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, minute)
+            seconds = int((target - now).total_seconds())
+
+    # Конкретное время — в HH:MM (только если нет слова "завтра")
+    if seconds is None and 'завтра' not in text.lower():
+        match = re.search(r'в\s+(\d{1,2}):(\d{2})', text.lower())
+        if match:
+            hour, minute = int(match.group(1)), int(match.group(2))
+            today = now.date()
+            target = datetime(today.year, today.month, today.day, hour, minute)
+            if target <= now:
+                target = datetime(today.year, today.month, today.day + 1, hour, minute)
             seconds = int((target - now).total_seconds())
 
     # Дата + время — "25 мая в 15:00"
