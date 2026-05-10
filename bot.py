@@ -194,6 +194,27 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
             target = (now + timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
             seconds = int((target - now).total_seconds())
 
+    # Дата + время — "25 мая в 15:00", "5 января в 9:00"
+    if seconds is None:
+        months = {
+            'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4,
+            'мая': 5, 'июня': 6, 'июля': 7, 'августа': 8,
+            'сентября': 9, 'октября': 10, 'ноября': 11, 'декабря': 12
+        }
+        match = re.search(
+            r'(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+в\s+(\d{1,2}):(\d{2})',
+            text.lower()
+        )
+        if match:
+            day = int(match.group(1))
+            month = months[match.group(2)]
+            hour = int(match.group(3))
+            minute = int(match.group(4))
+            target = now.replace(month=month, day=day, hour=hour, minute=minute, second=0, microsecond=0)
+            if target <= now:
+                target = target.replace(year=now.year + 1)
+            seconds = int((target - now).total_seconds())
+
     if seconds is None:
         return None
 
