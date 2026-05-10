@@ -2,6 +2,8 @@ import os
 import logging
 import re
 import json
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from telegram import Update, BotCommand
 from telegram.ext import (
@@ -33,18 +35,54 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+def get_db():
+    return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    """Создаёт таблицы если их нет"""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    user_id BIGINT PRIMARY KEY,
+                    timezone_offset INTEGER DEFAULT 3
+                )
+            """)
+        conn.commit()
+
+def get_timezone(user_id: int) -> int:
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT timezone_offset FROM user_settings WHERE user_id = %s", (user_id,))
+                row = cur.fetchone()
+                return row[0] if row else 3
+    except Exception:
+        return 3
+
+def set_timezone(user_id: int, offset: int):
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO user_settings (user_id, timezone_offset)
+                    VALUES (%s, %s)
+                    ON CONFLICT (user_id) DO UPDATE SET timezone_offset = %s
+                """, (user_id, offset, offset))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Ошибка записи таймзоны: {e}")
+
 REMIND_KEYWORDS = ["напомни", "напоминай", "remind", "напомнить"]
 
 # Хранилище истории: { chat_id: [ {role, content}, ... ] }
 conversation_history: dict[int, list[dict]] = {}
 
-# Хранилище часовых поясов: { user_id: int }
-user_timezones: dict[int, int] = {}
 
 def get_user_now(user_id: int) -> datetime:
-    """Возвращает текущее время для пользователя с учётом его часового пояса"""
-    offset = user_timezones.get(user_id, 3)  # по умолчанию UTC+3 (Москва)
-    # datetime.utcnow() — всегда UTC независимо от сервера
+    offset = get_timezone(user_id)
     return datetime.utcnow() + timedelta(hours=offset)
 
 
@@ -125,7 +163,7 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not context.args:
-        current = user_timezones.get(user_id, 3)
+        current = get_timezone(user_id)
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
             "Чтобы изменить напиши /timezone 5 (для Екатеринбурга)\n"
@@ -136,7 +174,7 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         offset = int(context.args[0])
         if offset < -12 or offset > 14:
             raise ValueError
-        user_timezones[user_id] = offset
+        set_timezone(user_id, offset)
         await update.message.reply_text(f"✅ Часовой пояс установлен: UTC+{offset}")
     except ValueError:
         await update.message.reply_text("Укажи число от -12 до 14. Например: /timezone 5")
@@ -432,6 +470,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CommandHandler("timezone", cmd_timezone))
 
+    init_db()
     logger.info("Бот запущен...")
     app.run_polling(drop_pending_updates=True)
 
