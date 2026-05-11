@@ -292,7 +292,7 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if num < 0 or num >= len(jobs):
             raise ValueError
     except (IndexError, ValueError):
-        await update.message.reply_text(f"Укажи номер от 1 до {len(jobs)}. Например: /cancel 1")
+        await update.message.reply_text(f"Укажи номер от 1 до {len(jobs)}. Например: /remindercancel 1")
         return
     reminder_text = jobs[num].data['reminder_text']
     jobs[num].schedule_removal()
@@ -541,7 +541,7 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📝 Перескажу содержание статьи на сайте или текста в тг:\n\n"
         "1) Процитируй сообщение с текстом или ссылкой и напиши: /summary\n"
-        "2) Или в новом сообщении добавь ссылку на статью: /summary https://ссылка\n ⚠️ Может не сработать, если на сайте есть пейволл или защита от ботов"
+        "2) Или в новом сообщении добавь ссылку на статью: /summary https://ссылка\n\n ⚠️ Не сработает, если на сайте есть пейволл или защита от ботов"
 	
     )
 
@@ -719,9 +719,9 @@ async def post_init(app):
         [
             BotCommand("start",     "Начать / главное меню"),
             BotCommand("clear",     "Очистить историю диалога"),
-            BotCommand("reminders", "Активные напоминания"),
-            BotCommand("cancel",    "Отменить напоминание"),
-            BotCommand("timezone",  "Установить часовой пояс для напоминаний"),
+            BotCommand("reminderlist", "Активные напоминания"),
+            BotCommand("remindercancel",    "Отменить напоминание"),
+            BotCommand("remindertimezone",  "Установить часовой пояс для напоминаний"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
             BotCommand("8ball",     "Магический шар"),
@@ -732,9 +732,9 @@ async def post_init(app):
     )
     await app.bot.set_my_commands(
         [
-            BotCommand("timezone",  "Установить часовой пояс для напоминаний"),
-            BotCommand("reminders", "Активные напоминания"),
-            BotCommand("cancel",    "Отменить напоминание"),
+            BotCommand("remindertimezone",  "Установить часовой пояс для напоминаний"),
+            BotCommand("reminderlist", "Активные напоминания"),
+            BotCommand("remindercancel",    "Отменить напоминание"),
             BotCommand("8ball",     "Магический шар"),
             BotCommand("random",    "Выбрать случайный вариант"),
             BotCommand("summary",   "Пересказ текста или статьи"),
@@ -755,9 +755,9 @@ def main():
     app.add_handler(CommandHandler("clear",     cmd_clear))
     app.add_handler(CommandHandler("help",      cmd_help))
     app.add_handler(CommandHandler("about",     cmd_about))
-    app.add_handler(CommandHandler("reminders", cmd_reminders))
-    app.add_handler(CommandHandler("cancel",    cmd_cancel))
-    app.add_handler(CommandHandler("timezone",  cmd_timezone))
+    app.add_handler(CommandHandler("reminderlist",     cmd_reminders))
+    app.add_handler(CommandHandler("remindercancel",   cmd_cancel))
+    app.add_handler(CommandHandler("remindertimezone", cmd_timezone))
     app.add_handler(CommandHandler("8ball",     cmd_8ball))
     app.add_handler(CommandHandler("random",    cmd_random))
     app.add_handler(CommandHandler("summary",   cmd_summary))
