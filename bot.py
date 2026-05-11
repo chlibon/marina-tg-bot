@@ -1,7 +1,7 @@
 import os
+import asyncio
 import logging
 import re
-import json
 import urllib.parse
 from datetime import datetime, timedelta
 from telegram import Update, BotCommand, BotCommandScopeDefault, BotCommandScopeAllGroupChats
@@ -41,56 +41,68 @@ IMAGE_KEYWORDS  = ["нарисуй", "сгенерируй", "draw", "нарис
 # Хранилище истории: { user_id: [ {role, content}, ... ] }
 conversation_history: dict[int, list[dict]] = {}
 
+# Кэш таймзон чтобы не ходить в БД на каждое сообщение
+timezone_cache: dict[int, int] = {}
 
-# ─── База данных ──────────────────────────────────────────────────────────────
-def get_db():
-    import sqlite3
-    return sqlite3.connect("/tmp/bot_data.db")
+# Глобальный пул соединений с БД
+db_pool = None
 
-def init_db():
+
+# ─── База данных (asyncpg) ────────────────────────────────────────────────────
+async def init_db():
+    global db_pool
+    if not DATABASE_URL:
+        logger.warning("DATABASE_URL не задан — таймзоны не будут сохраняться между перезапусками")
+        return
     try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS user_settings (
-                user_id INTEGER PRIMARY KEY,
-                timezone_offset INTEGER DEFAULT 3
-            )
-        """)
-        conn.commit()
-        cur.close()
-        conn.close()
+        import asyncpg
+        db_pool = await asyncpg.create_pool(DATABASE_URL, ssl="require")
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    user_id BIGINT PRIMARY KEY,
+                    timezone_offset INTEGER DEFAULT 3
+                )
+            """)
         logger.info("БД инициализирована")
     except Exception as e:
-        logger.error(f"Ошибка инициализации БД: {e}", exc_info=True)
+        logger.error(f"Ошибка инициализации БД: {e}")
+        db_pool = None
 
-def get_timezone(user_id: int) -> int:
+async def get_timezone_db(user_id: int) -> int:
+    if db_pool is None:
+        return 3
     try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT timezone_offset FROM user_settings WHERE user_id = ?", (user_id,))
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-        return row[0] if row else 3
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT timezone_offset FROM user_settings WHERE user_id = $1", user_id
+            )
+            return row["timezone_offset"] if row else 3
     except Exception as e:
-        logger.error(f"Ошибка чтения таймзоны: {e}", exc_info=True)
+        logger.error(f"Ошибка чтения таймзоны: {e}")
         return 3
 
-def set_timezone(user_id: int, offset: int):
+async def set_timezone_db(user_id: int, offset: int):
+    if db_pool is None:
+        return
     try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO user_settings (user_id, timezone_offset)
-            VALUES (?, ?)
-            ON CONFLICT (user_id) DO UPDATE SET timezone_offset = ?
-        """, (user_id, offset, offset))
-        conn.commit()
-        cur.close()
-        conn.close()
+        async with db_pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_settings (user_id, timezone_offset)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id) DO UPDATE SET timezone_offset = $2
+            """, user_id, offset)
     except Exception as e:
-        logger.error(f"Ошибка записи таймзоны: {e}", exc_info=True)
+        logger.error(f"Ошибка записи таймзоны: {e}")
+
+def get_timezone(user_id: int) -> int:
+    return timezone_cache.get(user_id, 3)
+
+async def load_timezone(user_id: int) -> int:
+    if user_id not in timezone_cache:
+        timezone_cache[user_id] = await get_timezone_db(user_id)
+    return timezone_cache[user_id]
+
 
 # ─── Вспомогательные функции ──────────────────────────────────────────────────
 def get_user_now(user_id: int) -> datetime:
@@ -162,6 +174,7 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import random
     answers = [
         "Однозначно да! 🟢",
         "Без сомнений — да! 🟢",
@@ -177,7 +190,6 @@ async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Перспективы не очень 🔴",
         "Очень сомнительно 🔴",
     ]
-    import random
     if not context.args:
         await update.message.reply_text("🎱 Задай вопрос! Например: /8ball стоит ли мне сделать бочку?")
         return
@@ -186,6 +198,7 @@ async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🎱 Вопрос: {question}\n\nОтвет: {answer}")
 
 async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import random
     if not context.args:
         await update.message.reply_text(
             "🎲 Укажи варианты через запятую!\n"
@@ -196,7 +209,6 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = " ".join(context.args)
-    import random
 
     # Проверяем есть ли число в начале — сколько выбрать
     count = 1
@@ -218,7 +230,6 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chosen = random.sample(options, count)
 
     if count == 1:
-        import random
         phrases = [
             "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
             "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
@@ -233,7 +244,7 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not context.args:
-        current = get_timezone(user_id)
+        current = await load_timezone(user_id)
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
             "Чтобы изменить напиши /timezone 5 (для Екатеринбурга)\n"
@@ -244,7 +255,8 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         offset = int(context.args[0])
         if offset < -12 or offset > 14:
             raise ValueError
-        set_timezone(user_id, offset)
+        timezone_cache[user_id] = offset
+        await set_timezone_db(user_id, offset)
         await update.message.reply_text(f"✅ Часовой пояс установлен: UTC+{offset}")
     except ValueError:
         await update.message.reply_text("Укажи число от -12 до 14. Например: /timezone 5")
@@ -313,8 +325,6 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
         match = re.search(r'завтра\s+в\s+(\d{1,2}):(\d{2})', text.lower())
         if match:
             hour, minute = int(match.group(1)), int(match.group(2))
-            # now — это локальное время пользователя
-            # завтра = следующие сутки начиная с 00:00
             tomorrow_start = datetime(now.year, now.month, now.day, 0, 0, 0) + timedelta(days=1)
             target = tomorrow_start.replace(hour=hour, minute=minute)
             seconds = int((target - now).total_seconds())
@@ -434,7 +444,7 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             image_bytes = response.content
         await update.message.reply_photo(photo=image_bytes, caption=f"🎨 {prompt}")
     except Exception as e:
-        logger.error(f"Ошибка записи таймзоны: {e}", exc_info=True)
+        logger.error(f"Ошибка генерации картинки: {e}")
         await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
 
 
@@ -443,6 +453,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_text = update.message.text or ""
     bot_username = context.bot.username
+    user_id = update.effective_user.id
+
+    # Загружаем таймзону в кэш если ещё не загружена
+    await load_timezone(user_id)
 
     logger.info(f"Сообщение: '{user_text}'")
     logger.info(f"Тип чата: {update.effective_chat.type}")
@@ -465,19 +479,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Напиши что ты хочешь узнать 😊")
         return
 
-    # Рандомайзер через цитату
+    # Рандомайзер через текст
     if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
-        # Убираем ключевое слово из текста
+        import random
         clean_text = user_text
         for kw in ["выбери из", "выбери", "выбирай"]:
             clean_text = re.sub(kw, "", clean_text, flags=re.IGNORECASE)
-        
-        # Берём варианты из текста сообщения
+        clean_text = clean_text.strip(" ,.")
         options = [o.strip() for o in re.split(r'[,]', clean_text) if o.strip()]
         options = [o for o in options if re.search(r'[a-zA-Zа-яА-ЯёЁ0-9]', o)]
-        
         if len(options) >= 2:
-            import random
             phrases = [
                 "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
                 "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
@@ -508,7 +519,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Напоминания
     if any(kw in user_text.lower() for kw in REMIND_KEYWORDS):
-        parsed = parse_reminder(user_text, update.effective_user.id)
+        parsed = parse_reminder(user_text, user_id)
         if parsed:
             seconds = int(parsed["seconds"])
             reminder_text = parsed["reminder_text"]
@@ -517,12 +528,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 when=seconds,
                 data={
                     "chat_id": update.effective_chat.id,
-                    "user_id": update.effective_user.id,
+                    "user_id": user_id,
                     "username": update.effective_user.username,
                     "first_name": update.effective_user.first_name or "друг",
                     "reminder_text": reminder_text,
                 },
-                name=str(update.effective_user.id),
+                name=str(user_id),
             )
             minutes = seconds // 60
             hours = minutes // 60
@@ -540,7 +551,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
     try:
-        answer = ask_groq(update.effective_user.id, user_text)
+        answer = ask_groq(user_id, user_text)
         await update.message.reply_text(answer)
     except Exception as e:
         logger.error(f"Ошибка Groq: {e}")
@@ -549,6 +560,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ─── Запуск ───────────────────────────────────────────────────────────────────
 async def post_init(app):
+    await init_db()
     await app.bot.set_my_commands(
         [
             BotCommand("start",     "Начать / главное меню"),
@@ -558,8 +570,8 @@ async def post_init(app):
             BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
-	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
-	    BotCommand("random", "Рандомайзер — /random A, B, C | или просто напиши 'выбери A, B, C'"),
+            BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
+            BotCommand("random",    "Выбрать случайный вариант из списка"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -568,16 +580,14 @@ async def post_init(app):
             BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
             BotCommand("reminders", "Список активных напоминаний"),
             BotCommand("cancel",    "Отменить напоминание — /cancel #"),
-	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
-	    BotCommand("random", "Рандомайзер — /random A, B, C | или просто напиши 'выбери A, B, C'"),
+            BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
+            BotCommand("random",    "Выбрать случайный вариант из списка"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
 
 
 def main():
-    init_db()
-
     app = (
         ApplicationBuilder()
         .token(TELEGRAM_TOKEN)
@@ -592,8 +602,8 @@ def main():
     app.add_handler(CommandHandler("reminders", cmd_reminders))
     app.add_handler(CommandHandler("cancel",    cmd_cancel))
     app.add_handler(CommandHandler("timezone",  cmd_timezone))
-    app.add_handler(CommandHandler("8ball", cmd_8ball))
-    app.add_handler(CommandHandler("random", cmd_random))
+    app.add_handler(CommandHandler("8ball",     cmd_8ball))
+    app.add_handler(CommandHandler("random",    cmd_random))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен...")
