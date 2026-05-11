@@ -246,7 +246,7 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current = await load_timezone(user_id)
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
-            "Чтобы изменить напиши /timezone #\n"
+            "Чтобы изменить напиши /remindertimezone #\n"
             "Примеры: Москва = 3,\n Екатеринбург = 5,\n Новосибирск = 7,\n Владивосток = 10"
         )
         return
@@ -278,7 +278,7 @@ async def cmd_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             time_str = f"через {seconds_left} сек"
         text += f"{i}. {job.data['reminder_text']} — {time_str}\n"
-    text += "\nЧтобы отменить напиши /cancel # "
+    text += "\nЧтобы отменить напиши /remindercancel # "
     await update.message.reply_text(text)
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
