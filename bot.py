@@ -44,16 +44,8 @@ conversation_history: dict[int, list[dict]] = {}
 
 # ─── База данных ──────────────────────────────────────────────────────────────
 def get_db():
-    import psycopg2
-    url = urllib.parse.urlparse(DATABASE_URL)
-    return psycopg2.connect(
-        host=url.hostname,
-        port=url.port or 5432,
-        dbname=url.path.lstrip("/"),
-        user=url.username,
-        password=url.password,
-        sslmode="require",
-    )
+    import sqlite3
+    return sqlite3.connect("/app/bot_data.db")
 
 def init_db():
     try:
@@ -61,7 +53,7 @@ def init_db():
         cur = conn.cursor()
         cur.execute("""
             CREATE TABLE IF NOT EXISTS user_settings (
-                user_id BIGINT PRIMARY KEY,
+                user_id INTEGER PRIMARY KEY,
                 timezone_offset INTEGER DEFAULT 3
             )
         """)
@@ -70,13 +62,13 @@ def init_db():
         conn.close()
         logger.info("БД инициализирована")
     except Exception as e:
-        logger.error(f"Ошибка инициализации БД: {e}")
+        logger.error(f"Ошибка инициализации БД: {e}", exc_info=True)
 
 def get_timezone(user_id: int) -> int:
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT timezone_offset FROM user_settings WHERE user_id = %s", (user_id,))
+        cur.execute("SELECT timezone_offset FROM user_settings WHERE user_id = ?", (user_id,))
         row = cur.fetchone()
         cur.close()
         conn.close()
@@ -91,15 +83,14 @@ def set_timezone(user_id: int, offset: int):
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO user_settings (user_id, timezone_offset)
-            VALUES (%s, %s)
-            ON CONFLICT (user_id) DO UPDATE SET timezone_offset = %s
+            VALUES (?, ?)
+            ON CONFLICT (user_id) DO UPDATE SET timezone_offset = ?
         """, (user_id, offset, offset))
         conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
-        logger.error(f"Ошибка записи таймзоны: {e}")
-
+        logger.error(f"Ошибка записи таймзоны: {e}", exc_info=True)
 
 # ─── Вспомогательные функции ──────────────────────────────────────────────────
 def get_user_now(user_id: int) -> datetime:
