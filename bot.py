@@ -542,8 +542,8 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "📝 Используй так:\n"
-        "/summary https://ссылка — пересказ статьи\n"
-        "Или процитируй сообщение с текстом или ссылкой и напиши /summary"
+        "Пересказ статьи, если на сайте нет блокировки от ботов /summary https://ссылка\n"
+        "Или просто процитируй сообщение с текстом или ссылкой и напиши /summary"
     )
 
 
@@ -646,8 +646,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Цитата с текстом или ссылкой
         if update.message.reply_to_message:
             quoted = update.message.reply_to_message
-            quoted_text = quoted.text or quoted.caption or ""
-            logger.info(f"content_type={quoted.content_type}, text={quoted.text!r}, caption={quoted.caption!r}")
+            quoted_text = quoted.text or quoted.caption or ""       
             url_in_quote = re.search(r'https?://\S+', quoted_text)
             if url_in_quote:
                 await fetch_and_summarize(update, url_in_quote.group(0))
@@ -728,7 +727,7 @@ async def post_init(app):
             BotCommand("about",     "О боте"),
             BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
             BotCommand("random",    "Выбрать случайный вариант из списка"),
-            BotCommand("summary",   "Пересказ статьи — /summary https://ссылка"),
+            BotCommand("summary",   "Пересказ статьи или текста - /summary https://ссылка"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -739,7 +738,7 @@ async def post_init(app):
             BotCommand("cancel",    "Отменить напоминание — /cancel #"),
             BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
             BotCommand("random",    "Выбрать случайный вариант из списка"),
-            BotCommand("summary",   "Пересказ статьи — /summary https://ссылка"),
+            BotCommand("summary",   "Пересказ статьи или текстаа — /summary https://ссылка"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
