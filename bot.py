@@ -630,7 +630,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Цитата с текстом или ссылкой
         if update.message.reply_to_message:
             quoted = update.message.reply_to_message
-            quoted_text = quoted.text or ""
+            quoted_text = quoted.text or quoted.caption or ""
             url_in_quote = re.search(r'https?://\S+', quoted_text)
             if url_in_quote:
                 await fetch_and_summarize(update, url_in_quote.group(0))
