@@ -247,7 +247,7 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
             "Чтобы изменить напиши /remindertimezone #\n"
-            "Примеры: Москва = 3,\n Екатеринбург = 5,\n Новосибирск = 7,\n Владивосток = 10"
+            "Примеры:\n Москва = 3,\n Екатеринбург = 5,\n Новосибирск = 7,\n Владивосток = 10"
         )
         return
     try:
