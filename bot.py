@@ -191,7 +191,7 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎲 Укажи варианты через запятую!\n"
             "Например: /random A, B, C\n"
             "Для жеребьёвки: /random 2 A, B, C\n"
-	    "Или процитируй список и напиши 'выбери'"),
+            "Или процитируй список и напиши 'выбери'"
         )
         return
 
