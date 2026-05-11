@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
-REMIND_KEYWORDS  = ["напомни", "напоминай", "remind", "напомнить"]
+REMIND_KEYWORDS  = ["напомни", "remind",]
 IMAGE_KEYWORDS   = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
 SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко", "о чём", "о чем"]
 
@@ -668,7 +668,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if image_prompt:
             await generate_image(update, context, image_prompt)
         else:
-            await update.message.reply_text("Напиши что нарисовать, например: нарисуй закат над морем")
+            await update.message.reply_text("С удовольствием. Что ты хочешь, чтобы я тебе нарисовала?")
         return
 
     # Напоминания
