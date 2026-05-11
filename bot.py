@@ -45,7 +45,7 @@ conversation_history: dict[int, list[dict]] = {}
 # ─── База данных ──────────────────────────────────────────────────────────────
 def get_db():
     import sqlite3
-    return sqlite3.connect("/app/bot_data.db")
+    return sqlite3.connect("/tmp/bot_data.db")
 
 def init_db():
     try:
