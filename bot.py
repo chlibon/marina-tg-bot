@@ -719,25 +719,25 @@ async def post_init(app):
         [
             BotCommand("start",     "Начать / главное меню"),
             BotCommand("clear",     "Очистить историю диалога"),
-            BotCommand("reminders", "Список активных напоминаний"),
-            BotCommand("cancel",    "Отменить напоминание: /cancel #"),
-            BotCommand("timezone",  "Установить часовой пояс для напоминаний: /timezone #"),
+            BotCommand("reminders", "Активные напоминания"),
+            BotCommand("cancel",    "Отменить напоминание"),
+            BotCommand("timezone",  "Установить часовой пояс для напоминаний"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
-            BotCommand("8ball",     "Магический шар: /8ball Твой вопрос"),
-            BotCommand("random",    "Случайный вариант из списка"),
-            BotCommand("summary",   "Пересказ текста или статьи: /summary https://ссылка"),
+            BotCommand("8ball",     "Магический шар"),
+            BotCommand("random",    "Выбрать случайный вариант"),
+            BotCommand("summary",   "Пересказ текста или статьи"),
         ],
         scope=BotCommandScopeDefault()
     )
     await app.bot.set_my_commands(
         [
-            BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
-            BotCommand("reminders", "Список активных напоминаний"),
-            BotCommand("cancel",    "Отменить напоминание: /cancel #"),
-            BotCommand("8ball",     "Магический шар: /8ball Твой вопрос"),
-            BotCommand("random",    "Cлучайный вариант из списка"),
-            BotCommand("summary",   "Пересказ текста или статьи: /summary https://ссылка"),
+            BotCommand("timezone",  "Установить часовой пояс для напоминаний"),
+            BotCommand("reminders", "Активные напоминания"),
+            BotCommand("cancel",    "Отменить напоминание"),
+            BotCommand("8ball",     "Магический шар"),
+            BotCommand("random",    "Выбрать случайный вариант"),
+            BotCommand("summary",   "Пересказ текста или статьи"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
