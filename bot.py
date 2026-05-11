@@ -81,7 +81,8 @@ def get_timezone(user_id: int) -> int:
         cur.close()
         conn.close()
         return row[0] if row else 3
-    except Exception:
+    except Exception as e:
+        logger.error(f"Ошибка чтения таймзоны: {e}", exc_info=True)
         return 3
 
 def set_timezone(user_id: int, offset: int):
@@ -373,7 +374,7 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             image_bytes = response.content
         await update.message.reply_photo(photo=image_bytes, caption=f"🎨 {prompt}")
     except Exception as e:
-        logger.error(f"Ошибка генерации картинки: {e}")
+        logger.error(f"Ошибка записи таймзоны: {e}", exc_info=True)
         await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
 
 
