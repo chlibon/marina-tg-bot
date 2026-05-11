@@ -179,7 +179,7 @@ async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     import random
     if not context.args:
-        await update.message.reply_text("🎱 Задай вопрос! Например: /8ball стоит ли мне идти на работу?")
+        await update.message.reply_text("🎱 Задай вопрос! Например: /8ball стоит ли мне сделать бочку?")
         return
     question = " ".join(context.args)
     answer = random.choice(answers)
