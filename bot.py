@@ -189,8 +189,9 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "🎲 Укажи варианты через запятую!\n"
-            "Например: /random пицца, суши, бургер\n"
-            "Или для жеребьёвки: /random 2 Петя, Вася, Коля, Маша"
+            "Например: /random A, B, C\n"
+            "Для жеребьёвки: /random 2 A, B, C\n"
+	    "Или процитируй список и напиши 'выбери'"),
         )
         return
 
