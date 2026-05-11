@@ -560,7 +560,7 @@ async def post_init(app):
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
 	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
-	    BotCommand("random", "Рандомайзер — /random 1, 2, 3 | или процитируй список и напиши 'выбери'"),
+	    BotCommand("random", "Рандомайзер — /random A, B, C | или просто напиши 'выбери A, B, C'"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -570,7 +570,7 @@ async def post_init(app):
             BotCommand("reminders", "Список активных напоминаний"),
             BotCommand("cancel",    "Отменить напоминание — /cancel #"),
 	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
-	    BotCommand("random", "Рандомайзер — /random 1, 2, 3 | или процитируй список и напиши 'выбери'"),
+	    BotCommand("random", "Рандомайзер — /random A, B, C | или просто напиши 'выбери A, B, C'"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
