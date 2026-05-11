@@ -35,8 +35,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
-REMIND_KEYWORDS = ["напомни", "напоминай", "remind", "напомнить"]
-IMAGE_KEYWORDS  = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
+REMIND_KEYWORDS  = ["напомни", "напоминай", "remind", "напомнить"]
+IMAGE_KEYWORDS   = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
+SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко", "о чём", "о чем"]
 
 # Хранилище истории: { user_id: [ {role, content}, ... ] }
 conversation_history: dict[int, list[dict]] = {}
@@ -416,7 +417,103 @@ async def send_reminder(context):
     await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
 
 
-# ─── Генерация картинок ───────────────────────────────────────────────────────
+# ─── Пересказ текста/статьи ───────────────────────────────────────────────────
+async def summarize_text(update: Update, text: str):
+    """Пересказывает текст через Groq"""
+    if len(text) > 12000:
+        text = text[:12000]
+    await update.message.reply_chat_action("typing")
+    try:
+        response = groq_client.chat.completions.create(
+            model=MODEL,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Сделай краткий пересказ следующего текста на русском языке. "
+                    f"Выдели главные мысли, факты и выводы. Отвечай кратко и по делу:\n\n{text}"
+                )
+            }],
+            temperature=0.5,
+            max_tokens=1024,
+        )
+        summary = response.choices[0].message.content.strip()
+        await update.message.reply_text(f"📝 Краткий пересказ:\n\n{summary}")
+    except Exception as e:
+        logger.error(f"Ошибка пересказа: {e}")
+        await update.message.reply_text("⚠️ Не удалось сделать пересказ, попробуй ещё раз.")
+
+async def fetch_and_summarize(update: Update, url: str):
+    """Скачивает страницу и пересказывает"""
+    import httpx
+    from html.parser import HTMLParser
+
+    class TextExtractor(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.text_parts = []
+            self.skip_tags = {'script', 'style', 'head', 'nav', 'footer', 'aside'}
+            self.current_skip = False
+            self.skip_depth = 0
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.skip_tags:
+                self.current_skip = True
+                self.skip_depth += 1
+
+        def handle_endtag(self, tag):
+            if tag in self.skip_tags:
+                self.skip_depth -= 1
+                if self.skip_depth <= 0:
+                    self.current_skip = False
+                    self.skip_depth = 0
+
+        def handle_data(self, data):
+            if not self.current_skip:
+                stripped = data.strip()
+                if stripped:
+                    self.text_parts.append(stripped)
+
+        def get_text(self):
+            return " ".join(self.text_parts)
+
+    await update.message.reply_text("🔍 Читаю статью...")
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={
+            "User-Agent": "Mozilla/5.0"
+        }) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            html = resp.text
+
+        extractor = TextExtractor()
+        extractor.feed(html)
+        text = extractor.get_text()
+
+        if len(text) < 100:
+            await update.message.reply_text("⚠️ Не удалось извлечь текст со страницы — возможно сайт за пейволлом или требует авторизации.")
+            return
+
+        await summarize_text(update, text)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки страницы: {e}")
+        await update.message.reply_text("⚠️ Не удалось загрузить страницу. Проверь ссылку или попробуй ещё раз.")
+
+async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /summary URL"""
+    if not context.args:
+        await update.message.reply_text(
+            "📝 Укажи ссылку или процитируй текст и напиши 'перескажи'.\n"
+            "Например: /summary https://example.com/article"
+        )
+        return
+    url = context.args[0]
+    if not url.startswith("http"):
+        await update.message.reply_text("Укажи полную ссылку начиная с https://")
+        return
+    await fetch_and_summarize(update, url)
+
+
+
 async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str):
     chat_id = update.effective_chat.id
     try:
@@ -505,6 +602,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+    # Пересказ
+    if any(kw in user_text.lower() for kw in SUMMARY_KEYWORDS):
+        # Ссылка в тексте сообщения
+        url_match = re.search(r'https?://\S+', user_text)
+        if url_match:
+            await fetch_and_summarize(update, url_match.group(0))
+            return
+        # Цитата с текстом или ссылкой
+        if update.message.reply_to_message:
+            quoted = update.message.reply_to_message
+            quoted_text = quoted.text or ""
+            url_in_quote = re.search(r'https?://\S+', quoted_text)
+            if url_in_quote:
+                await fetch_and_summarize(update, url_in_quote.group(0))
+                return
+            if len(quoted_text) > 50:
+                await summarize_text(update, quoted_text)
+                return
+        await update.message.reply_text(
+            "Процитируй текст или сообщение со ссылкой и напиши 'перескажи',\n"
+            "или используй /summary https://ссылка"
+        )
+        return
+
     # Генерация картинок
     if any(kw in user_text.lower() for kw in IMAGE_KEYWORDS):
         image_prompt = user_text.lower()
@@ -572,6 +693,7 @@ async def post_init(app):
             BotCommand("about",     "О боте"),
             BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
             BotCommand("random",    "Выбрать случайный вариант из списка"),
+            BotCommand("summary",   "Пересказ статьи — /summary https://ссылка"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -582,6 +704,7 @@ async def post_init(app):
             BotCommand("cancel",    "Отменить напоминание — /cancel #"),
             BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
             BotCommand("random",    "Выбрать случайный вариант из списка"),
+            BotCommand("summary",   "Пересказ статьи — /summary https://ссылка"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
@@ -604,6 +727,7 @@ def main():
     app.add_handler(CommandHandler("timezone",  cmd_timezone))
     app.add_handler(CommandHandler("8ball",     cmd_8ball))
     app.add_handler(CommandHandler("random",    cmd_random))
+    app.add_handler(CommandHandler("summary",   cmd_summary))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен...")
