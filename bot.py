@@ -518,10 +518,10 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if url_in_quote:
             await fetch_and_summarize(update, url_in_quote.group(0))
             return
-        if len(quoted_text) > 50:
+        if quoted_text:
             await summarize_text(update, quoted_text)
             return
-        await update.message.reply_text("В цитате слишком мало текста для пересказа.")
+        await update.message.reply_text("В цитате нет текста.")
         return
 
     await update.message.reply_text(
