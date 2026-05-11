@@ -546,7 +546,7 @@ async def post_init(app):
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
 	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
-	    BotCommand("random", "Рандомайзер — /random пицца, суши, бургер | или цитируй список и пиши 'выбери'"),
+	    BotCommand("random", "Рандомайзер — /random 1, 2, 3 | или процитируй список и напиши 'выбери'"),
         ],
         scope=BotCommandScopeDefault()
     )
