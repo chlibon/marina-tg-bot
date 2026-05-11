@@ -435,7 +435,7 @@ async def summarize_text(update: Update, text: str):
             max_tokens=1024,
         )
         summary = response.choices[0].message.content.strip()
-        await update.message.reply_text(f"📝 Ну значит, смотри:\n\n{summary}")
+        await update.message.reply_text(f"📝 Ну, значит, смотри:\n\n{summary}")
     except Exception as e:
         logger.error(f"Ошибка пересказа: {e}")
         await update.message.reply_text("⚠️ Не удалось сделать пересказ, попробуй ещё раз.")
