@@ -161,6 +161,30 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "одной из лучших открытых моделей."
     )
 
+async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    answers = [
+        "Однозначно да! 🟢",
+        "Без сомнений — да! 🟢",
+        "Мои источники говорят да 🟢",
+        "Всё указывает на это 🟢",
+        "Скорее всего да 🟡",
+        "Хороший знак 🟡",
+        "Спроси позже 🟡",
+        "Сложно сказать — попробуй снова 🟡",
+        "Не рассчитывай на это 🔴",
+        "Мой ответ — нет 🔴",
+        "Мои источники говорят нет 🔴",
+        "Перспективы не очень 🔴",
+        "Очень сомнительно 🔴",
+    ]
+    import random
+    if not context.args:
+        await update.message.reply_text("🎱 Задай вопрос! Например: /8ball стоит ли мне идти на работу?")
+        return
+    question = " ".join(context.args)
+    answer = random.choice(answers)
+    await update.message.reply_text(f"🎱 Вопрос: {question}\n\nОтвет: {answer}")
+
 async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not context.args:
@@ -460,6 +484,7 @@ async def post_init(app):
             BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
+	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -468,6 +493,7 @@ async def post_init(app):
             BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
             BotCommand("reminders", "Список активных напоминаний"),
             BotCommand("cancel",    "Отменить напоминание — /cancel #"),
+	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
@@ -490,6 +516,7 @@ def main():
     app.add_handler(CommandHandler("reminders", cmd_reminders))
     app.add_handler(CommandHandler("cancel",    cmd_cancel))
     app.add_handler(CommandHandler("timezone",  cmd_timezone))
+    app.add_handler(CommandHandler("8ball", cmd_8ball))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен...")
