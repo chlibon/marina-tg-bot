@@ -647,7 +647,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.message.reply_to_message:
             quoted = update.message.reply_to_message
             quoted_text = quoted.text or quoted.caption or ""
-	    logger.info(f"quoted.text='{quoted.text}', quoted.caption='{quoted.caption}', type={quoted.content_type}")
+            logger.info(f"content_type={quoted.content_type}, text={quoted.text!r}, caption={quoted.caption!r}")
             url_in_quote = re.search(r'https?://\S+', quoted_text)
             if url_in_quote:
                 await fetch_and_summarize(update, url_in_quote.group(0))
