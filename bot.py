@@ -513,15 +513,31 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Цитата с ссылкой или текстом
     if update.message.reply_to_message:
         quoted = update.message.reply_to_message
-        quoted_text = quoted.text or ""
+        # Берём текст или подпись к фото/видео
+        quoted_text = quoted.text or quoted.caption or ""
+
+        # Ищем ссылку в тексте или подписи
         url_in_quote = re.search(r'https?://\S+', quoted_text)
         if url_in_quote:
             await fetch_and_summarize(update, url_in_quote.group(0))
             return
+
+        # Проверяем entities на ссылки (кликабельные ссылки без текста)
+        entities = quoted.entities or quoted.caption_entities or []
+        for entity in entities:
+            if entity.type == "url":
+                url = quoted_text[entity.offset:entity.offset + entity.length]
+                await fetch_and_summarize(update, url)
+                return
+            if entity.type == "text_link" and entity.url:
+                await fetch_and_summarize(update, entity.url)
+                return
+
         if quoted_text:
             await summarize_text(update, quoted_text)
             return
-        await update.message.reply_text("В цитате нет текста.")
+
+        await update.message.reply_text("В цитате нет текста. Если это фото — текст должен быть в подписи к нему.")
         return
 
     await update.message.reply_text(
