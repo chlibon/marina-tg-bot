@@ -464,6 +464,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Напиши что ты хочешь узнать 😊")
         return
 
+    # Рандомайзер через цитату
+    if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
+        if update.message.reply_to_message and update.message.reply_to_message.text:
+            quoted_text = update.message.reply_to_message.text
+            options = [o.strip() for o in re.split(r'[,\n]', quoted_text) if o.strip()]
+            if len(options) >= 2:
+                import random
+                phrases = [
+                    "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
+                    "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
+                    "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
+                ]
+                phrase = random.choice(phrases)
+                chosen = random.choice(options)
+                await update.message.reply_text(f"🎲 {phrase} {chosen}!")
+                return
+
     # Генерация картинок
     if any(kw in user_text.lower() for kw in IMAGE_KEYWORDS):
         image_prompt = user_text.lower()
