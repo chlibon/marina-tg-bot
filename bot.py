@@ -468,10 +468,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Рандомайзер через цитату
     if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
         # Убираем ключевое слово из текста
-        clean_text = user_text.lower()
+        clean_text = user_text
         for kw in ["выбери из", "выбери", "выбирай"]:
-            clean_text = clean_text.replace(kw, "")
-        clean_text = clean_text.strip(" ,.")
+            clean_text = re.sub(kw, "", clean_text, flags=re.IGNORECASE)
         
         # Берём варианты из текста сообщения
         options = [o.strip() for o in re.split(r'[,]', clean_text) if o.strip()]
