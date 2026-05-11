@@ -232,9 +232,8 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if count == 1:
         phrases = [
-            "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
-            "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
-            "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
+            "Ну давай,", "Я думаю,", "Пожалуй,", "Хм, наверное,",
+            "Я бы выбрала", "Однозначно", "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
         ]
         phrase = random.choice(phrases)
         await update.message.reply_text(f"🎲 {phrase} {chosen[0]}!")
@@ -248,8 +247,8 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current = await load_timezone(user_id)
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
-            "Чтобы изменить напиши /timezone 5 (для Екатеринбурга)\n"
-            "Примеры: Москва = 3, Екб = 5, Новосибирск = 7, Владивосток = 10"
+            "Чтобы изменить напиши /timezone #\n"
+            "Примеры: Москва = 3, Екатеринбург = 5, Новосибирск = 7, Владивосток = 10"
         )
         return
     try:
@@ -476,7 +475,7 @@ async def fetch_and_summarize(update: Update, url: str):
         def get_text(self):
             return " ".join(self.text_parts)
 
-    await update.message.reply_text("🔍 Читаю статью...")
+    await update.message.reply_text("👀 Читаю статью...")
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={
             "User-Agent": "Mozilla/5.0"
@@ -541,9 +540,9 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        "📝 Используй так:\n"
-        "Пересказ статьи, если на сайте нет блокировки от ботов /summary https://ссылка\n"
-        "Или просто процитируй сообщение с текстом или ссылкой и напиши /summary"
+        "📝 Как пользоваться:\n"
+        "Для пересказа статьи (если на сайте нет защиты от ботов): /summary https://ссылка\n"
+        "Для пересказа текста: Процитируй сообщение с текстом или ссылкой и напиши /summary"
     )
 
 
@@ -721,13 +720,13 @@ async def post_init(app):
             BotCommand("start",     "Начать / главное меню"),
             BotCommand("clear",     "Очистить историю диалога"),
             BotCommand("reminders", "Список активных напоминаний"),
-            BotCommand("cancel",    "Отменить напоминание — /cancel #"),
-            BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
+            BotCommand("cancel",    "Отменить напоминание: /cancel #"),
+            BotCommand("timezone",  "Установить часовой пояс для напоминаний: /timezone #"),
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
-            BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
-            BotCommand("random",    "Выбрать случайный вариант из списка"),
-            BotCommand("summary",   "Пересказ статьи или текста - /summary https://ссылка"),
+            BotCommand("8ball",     "Магический шар: /8ball Твой вопрос"),
+            BotCommand("random",    "Случайный вариант из списка"),
+            BotCommand("summary",   "Пересказ текста или статьи: /summary https://ссылка"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -735,10 +734,10 @@ async def post_init(app):
         [
             BotCommand("timezone",  "Установить часовой пояс для напоминаний — /timezone #"),
             BotCommand("reminders", "Список активных напоминаний"),
-            BotCommand("cancel",    "Отменить напоминание — /cancel #"),
-            BotCommand("8ball",     "Магический шар — /8ball Твой вопрос"),
-            BotCommand("random",    "Выбрать случайный вариант из списка"),
-            BotCommand("summary",   "Пересказ статьи или текстаа — /summary https://ссылка"),
+            BotCommand("cancel",    "Отменить напоминание: /cancel #"),
+            BotCommand("8ball",     "Магический шар: /8ball Твой вопрос"),
+            BotCommand("random",    "Cлучайный вариант из списка"),
+            BotCommand("summary",   "Пересказ текста или статьи: /summary https://ссылка"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
