@@ -202,7 +202,7 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import random
     if not context.args:
         await update.message.reply_text(
-            "🎲 Новым сообщением или цитатой сообщения бота укажи варианты (через запятую)\n"
+            "🎲 Укажи варианты через запятую чтобы:\n\n"
             "1) Выбрать одно: /random A, B, C\n"
             "2) Выбрать несколько: /random # A, B, C" 
         )
@@ -247,7 +247,7 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
             "Чтобы изменить напиши /timezone #\n"
-            "Примеры: Москва = 3, Екатеринбург = 5, Новосибирск = 7, Владивосток = 10"
+            "Примеры: Москва = 3,\n Екатеринбург = 5,\n Новосибирск = 7,\n Владивосток = 10"
         )
         return
     try:
@@ -539,7 +539,7 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        "📝 Как пользоваться:\n"
+        "📝 Как пользоваться:\n\n"
         "1) Для пересказа статьи (если на сайте нет защиты от ботов): /summary https://ссылка\n"
         "2) Для пересказа текста: Процитируй сообщение с текстом или ссылкой и напиши /summary"
     )
