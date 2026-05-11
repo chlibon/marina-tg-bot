@@ -202,9 +202,9 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import random
     if not context.args:
         await update.message.reply_text(
-            "🎲 Укажи варианты через запятую!\n"
-            "Выбрать одно: /random A, B, C\n"
-            "Выбрать несколько: /random # A, B, C" 
+            "🎲 Новым сообщением или цитатой сообщения бота укажи варианты (через запятую)\n"
+            "1) Выбрать одно: /random A, B, C\n"
+            "2) Выбрать несколько: /random # A, B, C" 
         )
         return
 
@@ -540,8 +540,8 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "📝 Как пользоваться:\n"
-        "Для пересказа статьи (если на сайте нет защиты от ботов): /summary https://ссылка\n"
-        "Для пересказа текста: Процитируй сообщение с текстом или ссылкой и напиши /summary"
+        "1) Для пересказа статьи (если на сайте нет защиты от ботов): /summary https://ссылка\n"
+        "2) Для пересказа текста: Процитируй сообщение с текстом или ссылкой и напиши /summary"
     )
 
 
