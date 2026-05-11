@@ -469,7 +469,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
         if update.message.reply_to_message and update.message.reply_to_message.text:
             quoted_text = update.message.reply_to_message.text
-            options = [o.strip() for o in re.split(r'[,\n]', quoted_text) if o.strip()]
+            options = [o.strip() for o in re.split(r'[,\n]', quoted_text) if o.strip() and len(o.strip()) > 0]
+            # Убираем варианты которые состоят только из смайлов и спецсимволов
+            options = [o for o in options if re.search(r'[a-zA-Zа-яА-ЯёЁ0-9]', o)]
             if len(options) >= 2:
                 import random
                 phrases = [
@@ -480,6 +482,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 phrase = random.choice(phrases)
                 chosen = random.choice(options)
                 await update.message.reply_text(f"🎲 {phrase} {chosen}!")
+                return
+            else:
+                await update.message.reply_text("Процитируй список с минимум 2 вариантами через запятую или по строкам.")
                 return
 
     # Генерация картинок
