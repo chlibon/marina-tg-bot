@@ -499,18 +499,36 @@ async def fetch_and_summarize(update: Update, url: str):
         await update.message.reply_text("⚠️ Не удалось загрузить страницу. Проверь ссылку или попробуй ещё раз.")
 
 async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /summary URL"""
-    if not context.args:
-        await update.message.reply_text(
-            "📝 Укажи ссылку или процитируй текст и напиши 'перескажи'.\n"
-            "Например: /summary https://example.com/article"
-        )
+    """Команда /summary — работает с ссылкой в аргументах или с цитатой"""
+    # Ссылка передана напрямую: /summary https://...
+    if context.args:
+        url = context.args[0]
+        if url.startswith("http"):
+            await fetch_and_summarize(update, url)
+            return
+        else:
+            await update.message.reply_text("Укажи полную ссылку начиная с https://")
+            return
+
+    # Цитата с ссылкой или текстом
+    if update.message.reply_to_message:
+        quoted = update.message.reply_to_message
+        quoted_text = quoted.text or ""
+        url_in_quote = re.search(r'https?://\S+', quoted_text)
+        if url_in_quote:
+            await fetch_and_summarize(update, url_in_quote.group(0))
+            return
+        if len(quoted_text) > 50:
+            await summarize_text(update, quoted_text)
+            return
+        await update.message.reply_text("В цитате слишком мало текста для пересказа.")
         return
-    url = context.args[0]
-    if not url.startswith("http"):
-        await update.message.reply_text("Укажи полную ссылку начиная с https://")
-        return
-    await fetch_and_summarize(update, url)
+
+    await update.message.reply_text(
+        "📝 Используй так:\n"
+        "/summary https://ссылка — пересказ статьи\n"
+        "Или процитируй сообщение с текстом или ссылкой и напиши /summary"
+    )
 
 
 
