@@ -185,6 +185,50 @@ async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     answer = random.choice(answers)
     await update.message.reply_text(f"🎱 Вопрос: {question}\n\nОтвет: {answer}")
 
+async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text(
+            "🎲 Укажи варианты через запятую!\n"
+            "Например: /random пицца, суши, бургер\n"
+            "Или для жеребьёвки: /random 2 Петя, Вася, Коля, Маша"
+        )
+        return
+
+    text = " ".join(context.args)
+    import random
+
+    # Проверяем есть ли число в начале — сколько выбрать
+    count = 1
+    match = re.match(r'^(\d+)\s+', text)
+    if match:
+        count = int(match.group(1))
+        text = text[match.end():]
+
+    options = [o.strip() for o in text.split(",") if o.strip()]
+
+    if len(options) < 2:
+        await update.message.reply_text("Нужно минимум 2 варианта через запятую!")
+        return
+
+    if count > len(options):
+        await update.message.reply_text(f"Вариантов всего {len(options)}, не могу выбрать {count}!")
+        return
+
+    chosen = random.sample(options, count)
+
+    if count == 1:
+        import random
+        phrases = [
+            "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
+            "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
+            "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
+        ]
+        phrase = random.choice(phrases)
+        await update.message.reply_text(f"🎲 {phrase} {chosen[0]}!")
+    else:
+        result = "\n".join(f"{i+1}. {c}" for i, c in enumerate(chosen))
+        await update.message.reply_text(f"🎲 Выбираю {count} из {len(options)}...\n\n{result}")
+
 async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not context.args:
@@ -485,6 +529,7 @@ async def post_init(app):
             BotCommand("help",      "Помощь"),
             BotCommand("about",     "О боте"),
 	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
+	    BotCommand("random", "Рандомайзер — /random пицца, суши, бургер"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -494,6 +539,7 @@ async def post_init(app):
             BotCommand("reminders", "Список активных напоминаний"),
             BotCommand("cancel",    "Отменить напоминание — /cancel #"),
 	    BotCommand("8ball", "Магический шар — /8ball Твой вопрос"),
+	    BotCommand("random", "Рандомайзер — /random пицца, суши, бургер"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
@@ -517,6 +563,7 @@ def main():
     app.add_handler(CommandHandler("cancel",    cmd_cancel))
     app.add_handler(CommandHandler("timezone",  cmd_timezone))
     app.add_handler(CommandHandler("8ball", cmd_8ball))
+    app.add_handler(CommandHandler("random", cmd_random))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен...")
