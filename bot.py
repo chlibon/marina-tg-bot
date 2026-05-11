@@ -191,7 +191,7 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎲 Укажи варианты через запятую!\n"
             "Например: /random A, B, C\n"
             "Для жеребьёвки: /random 2 A, B, C\n"
-            "Или процитируй список и напиши 'выбери'"
+            "Или просто напиши 'выбери A, B, C'"
         )
         return
 
@@ -467,25 +467,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Рандомайзер через цитату
     if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
-        if update.message.reply_to_message and update.message.reply_to_message.text:
-            quoted_text = update.message.reply_to_message.text
-            options = [o.strip() for o in re.split(r'[,\n]', quoted_text) if o.strip() and len(o.strip()) > 0]
-            # Убираем варианты которые состоят только из смайлов и спецсимволов
-            options = [o for o in options if re.search(r'[a-zA-Zа-яА-ЯёЁ0-9]', o)]
-            if len(options) >= 2:
-                import random
-                phrases = [
-                    "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
-                    "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
-                    "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
-                ]
-                phrase = random.choice(phrases)
-                chosen = random.choice(options)
-                await update.message.reply_text(f"🎲 {phrase} {chosen}!")
-                return
-            else:
-                await update.message.reply_text("Процитируй список с минимум 2 вариантами через запятую или по строкам.")
-                return
+        # Убираем ключевое слово из текста
+        clean_text = user_text.lower()
+        for kw in ["выбери из", "выбери", "выбирай"]:
+            clean_text = clean_text.replace(kw, "")
+        clean_text = clean_text.strip(" ,.")
+        
+        # Берём варианты из текста сообщения
+        options = [o.strip() for o in re.split(r'[,]', clean_text) if o.strip()]
+        options = [o for o in options if re.search(r'[a-zA-Zа-яА-ЯёЁ0-9]', o)]
+        
+        if len(options) >= 2:
+            import random
+            phrases = [
+                "Ну давай,", "Я думаю,", "Может,", "Пожалуй,", "Хм, наверное,",
+                "Я бы выбрала", "Однозначно", "Без вопросов —", "Ну смотри,",
+                "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
+            ]
+            phrase = random.choice(phrases)
+            chosen = random.choice(options)
+            await update.message.reply_text(f"🎲 {phrase} {chosen}!")
+            return
+        else:
+            await update.message.reply_text(
+                "Укажи варианты через запятую!\n"
+                "Например: выбери пицца, суши, бургер"
+            )
+            return
 
     # Генерация картинок
     if any(kw in user_text.lower() for kw in IMAGE_KEYWORDS):
