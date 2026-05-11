@@ -203,9 +203,8 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "🎲 Укажи варианты через запятую!\n"
-            "Например: /random A, B, C\n"
-            "Для жеребьёвки: /random 2 A, B, C\n"
-            "Или просто напиши 'выбери A, B, C'"
+            "Выбрать одно: /random A, B, C\n"
+            "Выбрать несколько: /random # A, B, C" 
         )
         return
 
@@ -279,7 +278,7 @@ async def cmd_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             time_str = f"через {seconds_left} сек"
         text += f"{i}. {job.data['reminder_text']} — {time_str}\n"
-    text += "\nЧтобы отменить напиши /cancel 1 (или другой номер)"
+    text += "\nЧтобы отменить напиши /cancel # "
     await update.message.reply_text(text)
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
