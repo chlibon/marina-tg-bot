@@ -18,6 +18,7 @@ from groq import Groq
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY", "")
 DATABASE_URL   = os.getenv("DATABASE_URL", "")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
 MODEL          = "llama-3.3-70b-versatile"
 MAX_HISTORY    = 20
@@ -119,6 +120,56 @@ def add_to_history(chat_id: int, role: str, content: str):
     if len(history) > MAX_HISTORY:
         conversation_history[chat_id] = history[-MAX_HISTORY:]
 
+async def search_web(query: str) -> str:
+    """Ищет в интернете через Tavily"""
+    if not TAVILY_API_KEY:
+        return ""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": TAVILY_API_KEY,
+                    "query": query,
+                    "max_results": 5,
+                    "search_depth": "basic",
+                    "include_answer": True,
+                }
+            )
+            data = resp.json()
+            parts = []
+            if data.get("answer"):
+                parts.append(f"Краткий ответ: {data['answer']}")
+            for r in data.get("results", [])[:3]:
+                parts.append(f"— {r['title']}: {r['content'][:300]}")
+            return "\n".join(parts)
+    except Exception as e:
+        logger.error(f"Ошибка поиска Tavily: {e}")
+        return ""
+
+def needs_search(user_text: str) -> bool:
+    """Определяет нужен ли поиск в интернете"""
+    try:
+        response = groq_client.chat.completions.create(
+            model=MODEL,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Нужен ли поиск в интернете чтобы ответить на этот вопрос: '{user_text}'?\n"
+                    "Отвечай ТОЛЬКО 'да' или 'нет'.\n"
+                    "Поиск нужен если вопрос про: актуальные новости, текущие события, курсы валют, погоду, "
+                    "цены, расписания, результаты матчей, свежие данные, что произошло недавно.\n"
+                    "Поиск НЕ нужен для: общих знаний, математики, объяснений, советов, творческих задач."
+                )
+            }],
+            temperature=0,
+            max_tokens=5,
+        )
+        return "да" in response.choices[0].message.content.strip().lower()
+    except Exception:
+        return False
+
 def ask_groq(chat_id: int, user_text: str) -> str:
     add_to_history(chat_id, "user", user_text)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(chat_id)
@@ -131,6 +182,28 @@ def ask_groq(chat_id: int, user_text: str) -> str:
     answer = response.choices[0].message.content
     add_to_history(chat_id, "assistant", answer)
     return answer
+
+async def ask_groq_with_search(chat_id: int, user_text: str) -> str:
+    """Отвечает с поиском если нужно"""
+    if TAVILY_API_KEY and needs_search(user_text):
+        logger.info(f"Поиск в интернете для: '{user_text}'")
+        search_results = await search_web(user_text)
+        if search_results:
+            add_to_history(chat_id, "user", user_text)
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(chat_id)[:-1] + [{
+                "role": "user",
+                "content": f"{user_text}\n\n[Результаты поиска]:\n{search_results}\n\nОтветь на вопрос используя эти данные."
+            }]
+            response = groq_client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1024,
+            )
+            answer = response.choices[0].message.content
+            add_to_history(chat_id, "assistant", answer)
+            return answer
+    return ask_groq(chat_id, user_text)
 
 
 # ─── Команды ──────────────────────────────────────────────────────────────────
@@ -705,7 +778,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
     try:
-        answer = ask_groq(user_id, user_text)
+        answer = await ask_groq_with_search(user_id, user_text)
         await update.message.reply_text(answer)
     except Exception as e:
         logger.error(f"Ошибка Groq: {e}")
