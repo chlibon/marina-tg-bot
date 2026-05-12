@@ -892,6 +892,71 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Произошла ошибка при обращении к AI. Попробуй ещё раз через несколько секунд.")
 
 
+# ─── Голосовые сообщения ──────────────────────────────────────────────────────
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    await load_timezone(user_id)
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    try:
+        import httpx, tempfile, os as _os
+
+        voice = update.message.voice
+        file = await context.bot.get_file(voice.file_id)
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(file.file_path)
+            audio_data = resp.content
+
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+            tmp.write(audio_data)
+            tmp_path = tmp.name
+
+        with open(tmp_path, "rb") as f:
+            transcription = groq_client.audio.transcriptions.create(
+                file=("voice.ogg", f, "audio/ogg"),
+                model="whisper-large-v3",
+                language="ru",
+            )
+        _os.unlink(tmp_path)
+        text = transcription.text.strip()
+
+        if not text:
+            await update.message.reply_text("🎙 Не смогла разобрать голосовое 🤷‍♀️")
+            return
+
+        # Проверяем есть ли триггер в начале войса
+        trigger_words = ["марин", "марина", "мариночка"]
+        text_lower = text.lower().strip()
+        has_trigger = any(text_lower.startswith(kw) for kw in trigger_words)
+
+        if update.effective_chat.type in ["group", "supergroup"]:
+            if has_trigger:
+                # Убираем триггер из текста перед ответом
+                clean_text = text
+                for kw in trigger_words:
+                    if text_lower.startswith(kw):
+                        clean_text = text[len(kw):].strip(" ,!")
+                        break
+                await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
+                answer = await ask_groq_with_search(user_id, clean_text)
+                await update.message.reply_text(answer)
+            else:
+                # Только транскрипция
+                await update.message.reply_text(f"🎙 {text}")
+        else:
+            # В личке всегда транскрипция + ответ
+            await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
+            answer = await ask_groq_with_search(user_id, text)
+            await update.message.reply_text(answer)
+
+    except Exception as e:
+        logger.error(f"Ошибка обработки голосового: {e}")
+        await update.message.reply_text("⚠️ Не удалось обработать голосовое сообщение.")
+
+
 # ─── Запуск ───────────────────────────────────────────────────────────────────
 async def post_init(app):
     await init_db()
@@ -943,6 +1008,7 @@ def main():
     app.add_handler(CommandHandler("summary",   cmd_summary))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     logger.info("Бот запущен...")
     app.run_polling(drop_pending_updates=True)
