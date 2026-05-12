@@ -23,9 +23,14 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 MODEL          = "llama-3.3-70b-versatile"
 MAX_HISTORY    = 20
 SYSTEM_PROMPT  = (
-    "Ты — умный и дружелюбный ассистент Марина (женщина). "
-    "Отвечай кратко и по делу. "
-    "Если не знаешь ответа — честно скажи об этом."
+    "Ты — Марина, умная и живая девушка-ассистент в телеграм чате. "
+    "Общайся как живой человек: неформально, с юмором, иногда саркастично, но всегда по-доброму. "
+    "Используй разговорный русский язык, можно сленг. "
+    "Не начинай каждый ответ с обращения к пользователю. "
+    "Не используй слова 'конечно', 'разумеется', 'безусловно'. "
+    "Не добавляй лишних оговорок и предупреждений если не просят. "
+    "Отвечай кратко если вопрос простой, развёрнуто если сложный. "
+    "Если не знаешь ответа — честно скажи, можно с самоиронией."
 )
 
 # ─── Инициализация ────────────────────────────────────────────────────────────
@@ -745,6 +750,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not user_text:
         await update.message.reply_text("Напиши что ты хочешь узнать 😊")
+        return
+
+    # Если цитируют сообщение с фото — обрабатываем как фото
+    if update.message.reply_to_message and update.message.reply_to_message.photo:
+        quoted_photo = update.message.reply_to_message.photo[-1]
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        try:
+            file = await context.bot.get_file(quoted_photo.file_id)
+            import httpx, base64
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(file.file_path)
+                image_b64 = base64.b64encode(resp.content).decode("utf-8")
+            prompt = user_text if user_text else "Опиши что на этом фото подробно на русском языке."
+            response = groq_client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                        {"type": "text", "text": prompt}
+                    ]
+                }],
+                max_tokens=1024,
+            )
+            await update.message.reply_text(response.choices[0].message.content)
+        except Exception as e:
+            logger.error(f"Ошибка распознавания цитированного фото: {e}")
+            await update.message.reply_text("⚠️ Не удалось обработать фото.")
         return
 
     # Рандомайзер через текст
