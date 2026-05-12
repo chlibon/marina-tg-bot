@@ -651,6 +651,71 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
         await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
 
 
+# ─── Распознавание фото ───────────────────────────────────────────────────────
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    bot_username = context.bot.username
+    caption = update.message.caption or ""
+
+    await load_timezone(user_id)
+
+    # В группах реагируем только если тегают или цитируют бота
+    if update.effective_chat.type in ["group", "supergroup"]:
+        is_mention = f"@{bot_username}" in caption
+        is_reply_to_bot = (
+            update.message.reply_to_message is not None
+            and update.message.reply_to_message.from_user is not None
+            and update.message.reply_to_message.from_user.username == bot_username
+        )
+        if not is_mention and not is_reply_to_bot:
+            return
+        caption = caption.replace(f"@{bot_username}", "").strip()
+
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    try:
+        # Скачиваем фото
+        photo = update.message.photo[-1]  # берём максимальное разрешение
+        file = await context.bot.get_file(photo.file_id)
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(file.file_path)
+            image_data = resp.content
+
+        import base64
+        image_b64 = base64.b64encode(image_data).decode("utf-8")
+
+        # Отправляем в vision модель
+        prompt = caption if caption else "Опиши что на этом фото подробно на русском языке."
+
+        response = groq_client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_b64}"
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt
+                    }
+                ]
+            }],
+            max_tokens=1024,
+        )
+        answer = response.choices[0].message.content
+        await update.message.reply_text(answer)
+
+    except Exception as e:
+        logger.error(f"Ошибка распознавания фото: {e}")
+        await update.message.reply_text("⚠️ Не удалось обработать фото, попробуй ещё раз.")
+
+
 # ─── Обработчик сообщений ─────────────────────────────────────────────────────
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -835,6 +900,7 @@ def main():
     app.add_handler(CommandHandler("random",    cmd_random))
     app.add_handler(CommandHandler("summary",   cmd_summary))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
     logger.info("Бот запущен...")
     app.run_polling(drop_pending_updates=True)
