@@ -627,25 +627,34 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str):
     chat_id = update.effective_chat.id
+
+    await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+
     try:
-        translation = groq_client.chat.completions.create(
+        # Улучшаем и переводим промпт через Llama
+        enhanced = groq_client.chat.completions.create(
             model=MODEL,
             messages=[{
                 "role": "user",
-                "content": f"Переведи этот запрос на английский язык для генерации изображения, ответь ТОЛЬКО переводом без пояснений: '{prompt}'"
+                "content": (
+                    f"Улучши этот запрос для генерации изображения и переведи на английский. "
+                    f"Добавь детали: стиль, освещение, атмосферу, качество. "
+                    f"Ответь ТОЛЬКО улучшенным промптом на английском, без пояснений, не более 200 слов.\n"
+                    f"Запрос: '{prompt}'"
+                )
             }],
-            temperature=0,
-            max_tokens=100,
+            temperature=0.7,
+            max_tokens=200,
         )
-        english_prompt = translation.choices[0].message.content.strip()
+        english_prompt = enhanced.choices[0].message.content.strip()
+        logger.info(f"Улучшенный промпт: {english_prompt}")
     except Exception:
         english_prompt = prompt
 
-    await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
     try:
         import httpx
         encoded = urllib.parse.quote(english_prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&enhance=true"
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(url)
             response.raise_for_status()
