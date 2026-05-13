@@ -46,8 +46,8 @@ REMIND_KEYWORDS  = ["напомни", "remind",]
 IMAGE_KEYWORDS   = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
 SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко", "о чём", "о чем"]
 
-# Хранилище истории: { user_id: [ {role, content}, ... ] }
-conversation_history: dict[int, list[dict]] = {}
+# Хранилище истории: { (user_id, chat_id): [ {role, content}, ... ] }
+conversation_history: dict[tuple, list[dict]] = {}
 
 # Кэш таймзон чтобы не ходить в БД на каждое сообщение
 timezone_cache: dict[int, int] = {}
@@ -117,14 +117,14 @@ def get_user_now(user_id: int) -> datetime:
     offset = get_timezone(user_id)
     return datetime.utcnow() + timedelta(hours=offset)
 
-def get_history(chat_id: int) -> list[dict]:
-    return conversation_history.setdefault(chat_id, [])
+def get_history(user_id: int, chat_id: int) -> list[dict]:
+    return conversation_history.setdefault((user_id, chat_id), [])
 
-def add_to_history(chat_id: int, role: str, content: str):
-    history = get_history(chat_id)
+def add_to_history(user_id: int, chat_id: int, role: str, content: str):
+    history = get_history(user_id, chat_id)
     history.append({"role": role, "content": content})
     if len(history) > MAX_HISTORY:
-        conversation_history[chat_id] = history[-MAX_HISTORY:]
+        conversation_history[(user_id, chat_id)] = history[-MAX_HISTORY:]
 
 async def search_web(query: str) -> tuple[str, list]:
     """Ищет в интернете через Tavily. Возвращает (текст, источники)"""
@@ -178,9 +178,9 @@ def needs_search(user_text: str) -> bool:
     except Exception:
         return False
 
-def ask_groq(chat_id: int, user_text: str) -> str:
-    add_to_history(chat_id, "user", user_text)
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(chat_id)
+def ask_groq(user_id: int, chat_id: int, user_text: str) -> str:
+    add_to_history(user_id, chat_id, "user", user_text)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(user_id, chat_id)
     response = groq_client.chat.completions.create(
         model=MODEL,
         messages=messages,
@@ -188,16 +188,16 @@ def ask_groq(chat_id: int, user_text: str) -> str:
         max_tokens=1024,
     )
     answer = response.choices[0].message.content
-    add_to_history(chat_id, "assistant", answer)
+    add_to_history(user_id, chat_id, "assistant", answer)
     return answer
 
-async def ask_groq_with_search(chat_id: int, user_text: str) -> tuple[str, list]:
+async def ask_groq_with_search(user_id: int, chat_id: int, user_text: str) -> tuple[str, list]:
     """Отвечает с поиском если нужно. Возвращает (ответ, источники)"""
     if TAVILY_API_KEY and needs_search(user_text):
         search_results, sources = await search_web(user_text)
         if search_results:
-            add_to_history(chat_id, "user", user_text)
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(chat_id)[:-1] + [{
+            add_to_history(user_id, chat_id, "user", user_text)
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(user_id, chat_id)[:-1] + [{
                 "role": "user",
                 "content": f"{user_text}\n\n[Результаты поиска]:\n{search_results}\n\nОтветь на вопрос используя эти данные."
             }]
@@ -208,9 +208,9 @@ async def ask_groq_with_search(chat_id: int, user_text: str) -> tuple[str, list]
                 max_tokens=1024,
             )
             answer = response.choices[0].message.content
-            add_to_history(chat_id, "assistant", answer)
+            add_to_history(user_id, chat_id, "assistant", answer)
             return answer, sources
-    return ask_groq(chat_id, user_text), []
+    return ask_groq(user_id, chat_id, user_text), []
 
 
 # ─── Команды ──────────────────────────────────────────────────────────────────
@@ -228,8 +228,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_user.id
-    conversation_history.pop(chat_id, None)
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    conversation_history.pop((user_id, chat_id), None)
     await update.message.reply_text("🗑️ История диалога очищена. Начнём заново!")
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -382,7 +383,6 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── Напоминания ──────────────────────────────────────────────────────────────
 def parse_reminder(text: str, user_id: int) -> dict | None:
     now = get_user_now(user_id)
-    logger.info(f"parse_reminder: now={now}, user_id={user_id}, offset={get_timezone(user_id)}")
     seconds = None
 
     # Относительное время — через X минут/часов/дней
@@ -627,13 +627,11 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str):
+async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str, width: int = 1024, height: int = 1024):
     chat_id = update.effective_chat.id
-
     await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
 
     try:
-        # Улучшаем и переводим промпт через Llama
         enhanced = groq_client.chat.completions.create(
             model=MODEL,
             messages=[{
@@ -649,19 +647,21 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             max_tokens=200,
         )
         english_prompt = enhanced.choices[0].message.content.strip()
-        logger.info(f"Улучшенный промпт: {english_prompt}")
     except Exception:
         english_prompt = prompt
 
     try:
         import httpx
         encoded = urllib.parse.quote(english_prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&enhance=true"
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true&enhance=true"
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(url)
             response.raise_for_status()
             image_bytes = response.content
-        await update.message.reply_photo(photo=image_bytes, caption=f"🎨 {prompt}")
+
+        # Спойлер с улучшенным промптом через HTML
+        caption = f'🎨 {prompt}\n\n<tg-spoiler>📝 {english_prompt}</tg-spoiler>'
+        await update.message.reply_photo(photo=image_bytes, caption=caption, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Ошибка генерации картинки: {e}")
         await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
@@ -742,10 +742,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Загружаем таймзону в кэш если ещё не загружена
     await load_timezone(user_id)
 
-    logger.info(f"Сообщение: '{user_text}'")
-    logger.info(f"Тип чата: {update.effective_chat.type}")
-    if update.message.reply_to_message and update.message.reply_to_message.from_user:
-        logger.info(f"Reply from username: {update.message.reply_to_message.from_user.username}")
 
     # В группах реагируем на упоминание или цитирование сообщений бота
     if update.effective_chat.type in ["group", "supergroup"]:
@@ -846,9 +842,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image_prompt = user_text.lower()
         for kw in IMAGE_KEYWORDS:
             image_prompt = image_prompt.replace(kw, "")
+        width, height = 1024, 1024
+        if any(w in image_prompt for w in ["вертикальн", "портрет", "vertical", "portrait"]):
+            width, height = 768, 1344
+        elif any(w in image_prompt for w in ["горизонтальн", "широк", "landscape", "horizontal"]):
+            width, height = 1344, 768
         image_prompt = image_prompt.strip(" ,.")
         if image_prompt:
-            await generate_image(update, context, image_prompt)
+            await generate_image(update, context, image_prompt, width, height)
         else:
             await update.message.reply_text("С удовольствием. Что ты хочешь, чтобы я тебе нарисовала?")
         return
@@ -894,7 +895,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if TAVILY_API_KEY and needs_search(user_text):
             search_msg = await update.message.reply_text("🔍 Ищу в интернете...")
 
-        answer, sources = await ask_groq_with_search(chat_id, user_text)
+        answer, sources = await ask_groq_with_search(user_id, chat_id, user_text)
 
         if search_msg:
             try:
@@ -965,13 +966,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         clean_text = text[len(kw):].strip(" ,!")
                         break
                 await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-                answer, _ = await ask_groq_with_search(chat_id, clean_text)
+                answer, _ = await ask_groq_with_search(user_id, chat_id, clean_text)
                 await update.message.reply_text(answer)
             else:
                 await update.message.reply_text(f"🎙 {text}")
         else:
             await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-            answer, _ = await ask_groq_with_search(chat_id, text)
+            answer, _ = await ask_groq_with_search(user_id, chat_id, text)
             await update.message.reply_text(answer)
 
     except Exception as e:
