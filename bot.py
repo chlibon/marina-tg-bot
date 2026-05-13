@@ -918,10 +918,10 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             transcription = groq_client.audio.transcriptions.create(
                 file=("voice.ogg", f, "audio/ogg"),
                 model="whisper-large-v3",
-                language="ru",
+                response_format="text",
             )
         _os.unlink(tmp_path)
-        text = transcription.text.strip()
+        text = (transcription if isinstance(transcription, str) else transcription.text).strip()
 
         if not text:
             await update.message.reply_text("🎙 Не смогла разобрать голосовое 🤷‍♀️")
@@ -934,22 +934,19 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if update.effective_chat.type in ["group", "supergroup"]:
             if has_trigger:
-                # Убираем триггер из текста перед ответом
                 clean_text = text
                 for kw in trigger_words:
                     if text_lower.startswith(kw):
                         clean_text = text[len(kw):].strip(" ,!")
                         break
                 await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-                answer = await ask_groq_with_search(user_id, clean_text)
+                answer = await ask_groq_with_search(chat_id, clean_text)
                 await update.message.reply_text(answer)
             else:
-                # Только транскрипция
                 await update.message.reply_text(f"🎙 {text}")
         else:
-            # В личке всегда транскрипция + ответ
             await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-            answer = await ask_groq_with_search(user_id, text)
+            answer = await ask_groq_with_search(chat_id, text)
             await update.message.reply_text(answer)
 
     except Exception as e:
