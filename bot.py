@@ -758,8 +758,16 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         import base64
         image_b64 = base64.b64encode(image_data).decode("utf-8")
 
-        # Отправляем в vision модель
-        prompt = caption if caption else "Опиши что на этом фото подробно на русском языке."
+        # Выбираем промпт в зависимости от запроса пользователя
+        caption_lower = caption.lower()
+        if any(kw in caption_lower for kw in ["прочитай", "текст", "ocr", "что написано", "читай", "распознай текст", "извлеки текст"]):
+            prompt = "Извлеки и выведи весь текст с этого изображения дословно. Сохрани форматирование если возможно. Если текста нет — скажи об этом."
+        elif any(kw in caption_lower for kw in ["объекты", "что на фото", "что здесь", "перечисли", "найди объекты", "определи объекты"]):
+            prompt = "Перечисли все объекты которые видишь на фото. Для каждого укажи: название, примерное расположение (левый верх, центр и т.д.), и уверенность (высокая/средняя/низкая). Формат: • Объект — расположение (уверенность)"
+        elif caption:
+            prompt = caption
+        else:
+            prompt = "Опиши что на этом фото подробно на русском языке."
 
         response = groq_client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -825,7 +833,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             async with httpx.AsyncClient() as client:
                 resp = await client.get(file.file_path)
                 image_b64 = base64.b64encode(resp.content).decode("utf-8")
-            prompt = user_text if user_text else "Опиши что на этом фото подробно на русском языке."
+            prompt_lower = user_text.lower()
+            if any(kw in prompt_lower for kw in ["прочитай", "текст", "ocr", "что написано", "читай", "распознай текст", "извлеки текст"]):
+                prompt = "Извлеки и выведи весь текст с этого изображения дословно. Сохрани форматирование если возможно. Если текста нет — скажи об этом."
+            elif any(kw in prompt_lower for kw in ["объекты", "что на фото", "что здесь", "перечисли", "найди объекты", "определи объекты"]):
+                prompt = "Перечисли все объекты которые видишь на фото. Для каждого укажи: название, примерное расположение (левый верх, центр и т.д.), и уверенность (высокая/средняя/низкая). Формат: • Объект — расположение (уверенность)"
+            elif user_text:
+                prompt = user_text
+            else:
+                prompt = "Опиши что на этом фото подробно на русском языке."
             response = groq_client.chat.completions.create(
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
                 messages=[{
