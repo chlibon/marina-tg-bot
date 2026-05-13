@@ -229,7 +229,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 <b>Что я умею:</b>\n\n"
+        "❓ <b>Что я умею:</b>\n\n"
         "💬 <b>Общение и поиск</b>\n"
         "• Отвечаю на любые вопросы\n"
         "• Ищу актуальную информацию в интернете\n"
