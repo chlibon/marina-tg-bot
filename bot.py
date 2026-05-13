@@ -1025,7 +1025,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if any(kw in clean_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
                     await cmd_skills(update, context)
                 else:
-                    answer, _ = await ask_groq_with_search(chat_id, clean_text)
+                    answer, _ = await ask_groq_with_search(user_id, chat_id, clean_text)
                     await update.message.reply_text(answer)
             else:
                 await update.message.reply_text(f"🎙 {text}")
@@ -1034,7 +1034,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if any(kw in text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
                 await cmd_skills(update, context)
             else:
-                answer, _ = await ask_groq_with_search(chat_id, text)
+                answer, _ = await ask_groq_with_search(user_id, chat_id, text)
                 await update.message.reply_text(answer)
 
     except Exception as e:
