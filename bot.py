@@ -682,9 +682,16 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
         import httpx
         encoded = urllib.parse.quote(english_prompt)
         url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true&safe=false"
+        import asyncio
         async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.get(url)
-            response.raise_for_status()
+            for attempt in range(3):
+                response = await client.get(url)
+                if response.status_code == 429:
+                    await update.message.reply_text("⏳ Подожди немного, генерирую...")
+                    await asyncio.sleep(10)
+                    continue
+                response.raise_for_status()
+                break
             image_bytes = response.content
 
         # Спойлер с улучшенным промптом через HTML
