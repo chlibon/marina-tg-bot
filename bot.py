@@ -19,6 +19,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY", "")
 DATABASE_URL   = os.getenv("DATABASE_URL", "")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+HF_API_KEY     = os.getenv("HF_API_KEY", "")
 
 MODEL          = "llama-3.3-70b-versatile"
 MAX_HISTORY    = 20
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
 REMIND_KEYWORDS  = ["напомни", "remind",]
+IMAGE_KEYWORDS   = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
 SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко", "о чём", "о чем"]
 
 # Хранилище истории: { (user_id, chat_id): [ {role, content}, ... ] }
@@ -233,14 +235,14 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Отвечаю на любые вопросы\n"
         "• Ищу актуальную информацию в интернете\n"
         "• Помню контекст последних 20 сообщений\n\n"
-        "🎨 <b>Генерация картинок</b>\n"
-        "• <i>нарисуй / сгенерируй</i> — создаю изображение\n"
-        "• Автоматически улучшаю твой запрос\n"
-        "• Поддержка форматов: квадрат, портрет, горизонталь\n\n"
         "🖼 <b>Распознавание фото</b>\n"
         "• Опишу что на фото\n"
         "• Отвечу на вопросы по изображению\n"
         "• Работает с отправкой и цитированием фото\n\n"
+        "🎨 <b>Генерация картинок</b>\n"
+        "• <i>нарисуй / сгенерируй</i> — создаю изображение\n"
+        "• Автоматически улучшаю твой запрос\n"
+        "• Поддержка форматов: квадрат, портрет, горизонталь\n\n"
         "🎙 <b>Голосовые сообщения</b>\n"
         "• Транскрибирую войсы в текст\n"
         "• В группе отвечаю если начать с <i>«Марина»</i>\n"
@@ -261,7 +263,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <b>Groq</b> — Llama 3.3 70B (чат, поиск, напоминания)\n"
         "• <b>Groq</b> — Llama 4 Scout (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
-        "• <b>Pollinations AI</b> — генерация картинок\n"
+        "• <b>Hugging Face — FLUX.1-schnell (генерация картинок)\n"
         "• <b>Tavily</b> — поиск в интернете\n"
         "• <b>PostgreSQL</b> — хранение настроек пользователей",
         parse_mode="HTML"
@@ -651,6 +653,81 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# ─── Генерация картинок (Hugging Face FLUX) ──────────────────────────────────
+async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str, width: int = 1024, height: int = 1024):
+    chat_id = update.effective_chat.id
+    await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+
+    # Улучшаем промпт через Groq
+    try:
+        enhanced = groq_client.chat.completions.create(
+            model=MODEL,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Translate this image generation request to English and enhance it with details about "
+                    f"lighting, atmosphere, and quality. Keep the original style — use photorealism if not specified. "
+                    f"Return ONLY the improved English prompt, no explanations, max 150 words.\n"
+                    f"Request: '{prompt}'"
+                )
+            }],
+            temperature=0.7,
+            max_tokens=200,
+        )
+        english_prompt = enhanced.choices[0].message.content.strip()
+        if "http" in english_prompt or len(english_prompt) < 5 or "извин" in english_prompt.lower() or "не могу" in english_prompt.lower():
+            english_prompt = prompt
+    except Exception:
+        english_prompt = prompt
+
+    try:
+        import httpx, io
+        headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+        payload = {
+            "inputs": english_prompt,
+            "parameters": {
+                "width": width,
+                "height": height,
+                "num_inference_steps": 4,
+            }
+        }
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            image_bytes = response.content
+
+        # Красивая подпись с улучшенным промптом
+        try:
+            caption_response = groq_client.chat.completions.create(
+                model=MODEL,
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        f"Составь короткую подпись к сгенерированной картинке от лица девушки-ассистента Марины. "
+                        f"Запрос был: '{prompt}'. "
+                        f"Используй фразы типа 'Вот, нарисовала тебе ...', 'Держи, ...', 'Смотри что получилось — ...'. "
+                        f"Правильно склоняй слова. Только подпись, без пояснений и emoji."
+                    )
+                }],
+                temperature=0.7,
+                max_tokens=50,
+            )
+            intro_text = caption_response.choices[0].message.content.strip()
+        except Exception:
+            intro_text = f"Вот, нарисовала тебе {prompt}"
+
+        caption = f'🎨 {intro_text}\n\n<blockquote expandable>📝 {english_prompt}</blockquote>'
+        await update.message.reply_photo(photo=image_bytes, caption=caption, parse_mode="HTML")
+
+    except Exception as e:
+        logger.error(f"Ошибка генерации картинки: {e}")
+        await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
+
+
 # ─── Распознавание фото ───────────────────────────────────────────────────────
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -824,6 +901,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Процитируй текст или сообщение со ссылкой и напиши 'перескажи',\n"
             "или используй /summary https://ссылка"
         )
+        return
+
+    # Генерация картинок
+    if any(kw in user_text.lower() for kw in IMAGE_KEYWORDS):
+        image_prompt = user_text.lower()
+        for kw in IMAGE_KEYWORDS:
+            image_prompt = image_prompt.replace(kw, "")
+        width, height = 1024, 1024
+        if any(w in image_prompt for w in ["вертикальн", "портрет", "vertical", "portrait"]):
+            width, height = 896, 1152
+            image_prompt = re.sub(r'вертикальн\w*|портрет', '', image_prompt)
+        elif any(w in image_prompt for w in ["горизонтальн", "широк", "landscape", "horizontal"]):
+            width, height = 1152, 896
+            image_prompt = re.sub(r'горизонтальн\w*|широк\w*', '', image_prompt)
+        image_prompt = image_prompt.strip(" ,.")
+        if image_prompt:
+            await generate_image(update, context, image_prompt, width, height)
+        else:
+            await update.message.reply_text("С удовольствием. Что ты хочешь, чтобы я тебе нарисовала?")
         return
 
     # Напоминания
