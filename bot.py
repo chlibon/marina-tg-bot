@@ -951,14 +951,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(answer)
 
-        if sources:
-            src_lines = [f"• [{s['title'][:50]}]({s['url']})" for s in sources if s.get("url")]
-            if src_lines:
-                await update.message.reply_text(
-                    "📎 Источники:\n" + "\n".join(src_lines),
-                    parse_mode="Markdown",
-                    disable_web_page_preview=True
-                )
+        
     except Exception as e:
         logger.error(f"Ошибка Groq: {e}")
         await update.message.reply_text("⚠️ Произошла ошибка при обращении к AI. Попробуй ещё раз через несколько секунд.")
