@@ -481,21 +481,6 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
                 target = datetime(today.year, today.month, today.day + 1, hour, minute)
             seconds = int((target - now).total_seconds())
 
-    # Полночь
-    if seconds is None and 'полноч' in text.lower():
-        today = now.date()
-        target = datetime(today.year, today.month, today.day, 0, 0)
-        if target <= now:
-            target += timedelta(days=1)
-        seconds = int((target - now).total_seconds())
-
-    # Полдень
-    if seconds is None and 'полден' in text.lower():
-        today = now.date()
-        target = datetime(today.year, today.month, today.day, 12, 0)
-        if target <= now:
-            target += timedelta(days=1)
-        seconds = int((target - now).total_seconds())
 
     if seconds is None:
         return None
@@ -701,7 +686,14 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             image_bytes = response.content
 
         # Спойлер с улучшенным промптом через HTML
-        caption = f'🎨 {prompt}\n\n<tg-spoiler>📝 {english_prompt}</tg-spoiler>'
+        intros = [
+            "Вот, нарисовала тебе", "Держи,", "Готово! Вот", 
+            "Смотри что получилось —", "Нарисовала!", "Лови,",
+            "Пожалуйста,", "Вуаля —", "Сделала для тебя",
+        ]
+        import random
+        intro = random.choice(intros)
+        caption = f'🎨 {intro} {prompt}\n\n<blockquote expandable>📝 {english_prompt}</blockquote>'
         await update.message.reply_photo(photo=image_bytes, caption=caption, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Ошибка генерации картинки: {e}")
