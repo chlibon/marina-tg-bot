@@ -1012,14 +1012,20 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         clean_text = text[len(kw):].strip(" ,!")
                         break
                 await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-                answer, _ = await ask_groq_with_search(user_id, chat_id, clean_text)
-                await update.message.reply_text(answer)
+                if any(kw in clean_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
+                    await cmd_skills(update, context)
+                else:
+                    answer, _ = await ask_groq_with_search(chat_id, clean_text)
+                    await update.message.reply_text(answer)
             else:
                 await update.message.reply_text(f"🎙 {text}")
         else:
             await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-            answer, _ = await ask_groq_with_search(user_id, chat_id, text)
-            await update.message.reply_text(answer)
+            if any(kw in text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
+                await cmd_skills(update, context)
+            else:
+                answer, _ = await ask_groq_with_search(chat_id, text)
+                await update.message.reply_text(answer)
 
     except Exception as e:
         logger.error(f"Ошибка обработки голосового: {e}")
