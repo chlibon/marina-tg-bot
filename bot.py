@@ -747,6 +747,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption = caption.replace(f"@{bot_username}", "").strip()
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+    import asyncio
+    await asyncio.sleep(1.5)
 
     try:
         # Скачиваем фото
