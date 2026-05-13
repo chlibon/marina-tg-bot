@@ -126,10 +126,10 @@ def add_to_history(chat_id: int, role: str, content: str):
     if len(history) > MAX_HISTORY:
         conversation_history[chat_id] = history[-MAX_HISTORY:]
 
-async def search_web(query: str) -> str:
-    """Ищет в интернете через Tavily"""
+async def search_web(query: str) -> tuple[str, list]:
+    """Ищет в интернете через Tavily. Возвращает (текст, источники)"""
     if not TAVILY_API_KEY:
-        return ""
+        return "", []
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10) as client:
@@ -145,14 +145,16 @@ async def search_web(query: str) -> str:
             )
             data = resp.json()
             parts = []
+            sources = []
             if data.get("answer"):
                 parts.append(f"Краткий ответ: {data['answer']}")
             for r in data.get("results", [])[:3]:
                 parts.append(f"— {r['title']}: {r['content'][:300]}")
-            return "\n".join(parts)
+                sources.append({"title": r.get("title", ""), "url": r.get("url", "")})
+            return "\n".join(parts), sources
     except Exception as e:
         logger.error(f"Ошибка поиска Tavily: {e}")
-        return ""
+        return "", []
 
 def needs_search(user_text: str) -> bool:
     """Определяет нужен ли поиск в интернете"""
@@ -189,11 +191,10 @@ def ask_groq(chat_id: int, user_text: str) -> str:
     add_to_history(chat_id, "assistant", answer)
     return answer
 
-async def ask_groq_with_search(chat_id: int, user_text: str) -> str:
-    """Отвечает с поиском если нужно"""
+async def ask_groq_with_search(chat_id: int, user_text: str) -> tuple[str, list]:
+    """Отвечает с поиском если нужно. Возвращает (ответ, источники)"""
     if TAVILY_API_KEY and needs_search(user_text):
-        logger.info(f"Поиск в интернете для: '{user_text}'")
-        search_results = await search_web(user_text)
+        search_results, sources = await search_web(user_text)
         if search_results:
             add_to_history(chat_id, "user", user_text)
             messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(chat_id)[:-1] + [{
@@ -208,8 +209,8 @@ async def ask_groq_with_search(chat_id: int, user_text: str) -> str:
             )
             answer = response.choices[0].message.content
             add_to_history(chat_id, "assistant", answer)
-            return answer
-    return ask_groq(chat_id, user_text)
+            return answer, sources
+    return ask_groq(chat_id, user_text), []
 
 
 # ─── Команды ──────────────────────────────────────────────────────────────────
@@ -870,15 +871,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 },
                 name=str(user_id),
             )
-            minutes = seconds // 60
-            hours = minutes // 60
-            if hours > 0:
-                time_str = f"{hours} ч {minutes % 60} мин"
-            elif minutes > 0:
-                time_str = f"{minutes} мин"
+            months_ru = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
+            target_time = get_user_now(user_id) + timedelta(seconds=seconds)
+            days = seconds // 86400
+            hours = (seconds % 86400) // 3600
+            minutes = (seconds % 3600) // 60
+            if days > 0:
+                time_str = f"{target_time.day} {months_ru[target_time.month-1]} в {target_time.hour:02d}:{target_time.minute:02d}"
+            elif hours > 0:
+                time_str = f"{target_time.hour:02d}:{target_time.minute:02d} (через {hours} ч {minutes} мин)"
             else:
-                time_str = f"{seconds} сек"
-            await update.message.reply_text(f"✅ Напомню через {time_str}: {reminder_text}")
+                time_str = f"через {minutes} мин"
+            await update.message.reply_text(f"✅ Напомню {time_str}: {reminder_text}")
             return
         else:
             await update.message.reply_text("⚠️ Не смог распознать время. Попробуй например: 'напомни через 30 минут позвонить маме'")
@@ -886,8 +890,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
     try:
-        answer = await ask_groq_with_search(user_id, user_text)
+        search_msg = None
+        if TAVILY_API_KEY and needs_search(user_text):
+            search_msg = await update.message.reply_text("🔍 Ищу в интернете...")
+
+        answer, sources = await ask_groq_with_search(chat_id, user_text)
+
+        if search_msg:
+            try:
+                await search_msg.delete()
+            except Exception:
+                pass
+
         await update.message.reply_text(answer)
+
+        if sources:
+            src_lines = [f"• [{s['title'][:50]}]({s['url']})" for s in sources if s.get("url")]
+            if src_lines:
+                await update.message.reply_text(
+                    "📎 Источники:\n" + "\n".join(src_lines),
+                    parse_mode="Markdown",
+                    disable_web_page_preview=True
+                )
     except Exception as e:
         logger.error(f"Ошибка Groq: {e}")
         await update.message.reply_text("⚠️ Произошла ошибка при обращении к AI. Попробуй ещё раз через несколько секунд.")
@@ -941,13 +965,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         clean_text = text[len(kw):].strip(" ,!")
                         break
                 await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-                answer = await ask_groq_with_search(chat_id, clean_text)
+                answer, _ = await ask_groq_with_search(chat_id, clean_text)
                 await update.message.reply_text(answer)
             else:
                 await update.message.reply_text(f"🎙 {text}")
         else:
             await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-            answer = await ask_groq_with_search(chat_id, text)
+            answer, _ = await ask_groq_with_search(chat_id, text)
             await update.message.reply_text(answer)
 
     except Exception as e:
