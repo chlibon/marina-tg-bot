@@ -684,7 +684,7 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
     try:
         import httpx
         encoded = urllib.parse.quote(english_prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true&enhance=true"
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true&safe=false"
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(url)
             response.raise_for_status()
