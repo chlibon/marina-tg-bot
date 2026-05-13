@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
 REMIND_KEYWORDS  = ["напомни", "remind",]
-IMAGE_KEYWORDS   = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
 SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко", "о чём", "о чем"]
 
 # Хранилище истории: { (user_id, chat_id): [ {role, content}, ... ] }
@@ -652,63 +651,6 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-
-async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str, width: int = 1024, height: int = 1024):
-    chat_id = update.effective_chat.id
-    await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
-
-    try:
-        enhanced = groq_client.chat.completions.create(
-            model=MODEL,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Translate this image generation request to English and add details about lighting, atmosphere and quality. "
-                    f"Return ONLY the improved prompt in English, no explanations, max 200 words.\n"
-                    f"Request: '{prompt}'"
-                )
-            }],
-            temperature=0.7,
-            max_tokens=200,
-        )
-        english_prompt = enhanced.choices[0].message.content.strip()
-        # Если модель отказала или вернула мусор — используем оригинал
-        if "http" in english_prompt or len(english_prompt) < 5 or "извин" in english_prompt.lower() or "не могу" in english_prompt.lower():
-            english_prompt = prompt
-    except Exception:
-        english_prompt = prompt
-
-    try:
-        import httpx
-        encoded = urllib.parse.quote(english_prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true&safe=false"
-        import asyncio
-        async with httpx.AsyncClient(timeout=60) as client:
-            for attempt in range(3):
-                response = await client.get(url)
-                if response.status_code == 429:
-                    await update.message.reply_text("⏳ Подожди немного, генерирую...")
-                    await asyncio.sleep(10)
-                    continue
-                response.raise_for_status()
-                break
-            image_bytes = response.content
-
-        # Спойлер с улучшенным промптом через HTML
-        intros = [
-            "Вот, нарисовала тебе", "Держи,", "Готово! Вот", 
-            "Смотри что получилось —", "Нарисовала!", "Лови,",
-            "Пожалуйста,", "Вуаля —", "Сделала для тебя",
-        ]
-        import random
-        intro = random.choice(intros)
-        caption = f'🎨 {intro} {prompt}\n\n<blockquote expandable>📝 {english_prompt}</blockquote>'
-        await update.message.reply_photo(photo=image_bytes, caption=caption, parse_mode="HTML")
-    except Exception as e:
-        logger.error(f"Ошибка генерации картинки: {e}")
-        await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
-
-
 # ─── Распознавание фото ───────────────────────────────────────────────────────
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -882,26 +824,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Процитируй текст или сообщение со ссылкой и напиши 'перескажи',\n"
             "или используй /summary https://ссылка"
         )
-        return
-
-    # Генерация картинок
-    if any(kw in user_text.lower() for kw in IMAGE_KEYWORDS):
-        image_prompt = user_text.lower()
-        for kw in IMAGE_KEYWORDS:
-            image_prompt = image_prompt.replace(kw, "")
-        # Определяем соотношение сторон ДО очистки промпта
-        width, height = 1024, 1024
-        if any(w in image_prompt for w in ["вертикальн", "портрет", "vertical", "portrait"]):
-            width, height = 896, 1152
-            image_prompt = re.sub(r'вертикальн\w*|портрет', '', image_prompt)
-        elif any(w in image_prompt for w in ["горизонтальн", "широк", "landscape", "horizontal"]):
-            width, height = 1152, 896
-            image_prompt = re.sub(r'горизонтальн\w*|широк\w*', '', image_prompt)
-        image_prompt = image_prompt.strip(" ,.")
-        if image_prompt:
-            await generate_image(update, context, image_prompt, width, height)
-        else:
-            await update.message.reply_text("С удовольствием. Что ты хочешь, чтобы я тебе нарисовала?")
         return
 
     # Напоминания
