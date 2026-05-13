@@ -263,7 +263,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <b>Groq</b> — Llama 3.3 70B (чат, поиск, напоминания)\n"
         "• <b>Groq</b> — Llama 4 Scout (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
-        "• <b>Hugging Face — FLUX.1-schnell (генерация картинок)\n"
+        "• <b>Hugging Face</b> — FLUX.1-schnell (генерация картинок)\n"
         "• <b>Tavily</b> — поиск в интернете\n"
         "• <b>PostgreSQL</b> — хранение настроек пользователей",
         parse_mode="HTML"
