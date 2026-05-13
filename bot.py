@@ -663,20 +663,17 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             messages=[{
                 "role": "user",
                 "content": (
-                    f"Улучши этот запрос для генерации изображения и переведи на английский. "
-                    f"Сохраняй стиль который просит пользователь — если он не указан, используй фотореализм. "
-                    f"Добавь детали: освещение, атмосферу, качество. НЕ меняй стиль на живопись или картину если пользователь этого не просил. "
-                    f"Ответь ТОЛЬКО улучшенным промптом на английском, без пояснений, не более 200 слов.\n"
-                    f"Запрос: '{prompt}'\n"
-                    f"Важно: только промпт на английском, без ссылок и описаний."
+                    f"Translate this image generation request to English and add details about lighting, atmosphere and quality. "
+                    f"Return ONLY the improved prompt in English, no explanations, max 200 words.\n"
+                    f"Request: '{prompt}'"
                 )
             }],
             temperature=0.7,
             max_tokens=200,
         )
         english_prompt = enhanced.choices[0].message.content.strip()
-        # Если модель вернула ссылку или мусор — используем оригинал
-        if "http" in english_prompt or len(english_prompt) < 5:
+        # Если модель отказала или вернула мусор — используем оригинал
+        if "http" in english_prompt or len(english_prompt) < 5 or "извин" in english_prompt.lower() or "не могу" in english_prompt.lower():
             english_prompt = prompt
     except Exception:
         english_prompt = prompt
