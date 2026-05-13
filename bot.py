@@ -681,24 +681,23 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
         english_prompt = prompt
 
     try:
-        import httpx, io
+        import httpx
         headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-        payload = {
-            "inputs": english_prompt,
-            "parameters": {
-                "width": width,
-                "height": height,
-                "num_inference_steps": 4,
-            }
-        }
         async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(
-                "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell",
+                "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell/v1/images/generations",
                 headers=headers,
-                json=payload,
+                json={
+                    "prompt": english_prompt,
+                    "num_inference_steps": 4,
+                    "width": width,
+                    "height": height,
+                },
             )
             response.raise_for_status()
-            image_bytes = response.content
+            import base64
+            data = response.json()
+            image_bytes = base64.b64decode(data["data"][0]["b64_json"])
 
         # Красивая подпись с улучшенным промптом
         try:
@@ -849,7 +848,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Что умеешь
-    if any(kw in user_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
+    if any(kw in user_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь", "твои возможности", "что умеет"]):
         await cmd_skills(update, context)
         return
 
