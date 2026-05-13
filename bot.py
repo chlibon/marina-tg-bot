@@ -19,7 +19,6 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY", "")
 DATABASE_URL   = os.getenv("DATABASE_URL", "")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
-HF_API_KEY     = os.getenv("HF_API_KEY", "")
 
 MODEL          = "llama-3.3-70b-versatile"
 MAX_HISTORY    = 20
@@ -263,7 +262,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <b>Groq</b> — Llama 3.3 70B (чат, поиск, напоминания)\n"
         "• <b>Groq</b> — Llama 4 Scout (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
-        "• <b>Hugging Face</b> — FLUX.1-schnell (генерация картинок)\n"
+        "• <b>Pollination AI</b> — FLUX.1-schnell (генерация картинок)\n"
         "• <b>Tavily</b> — поиск в интернете\n"
         "• <b>PostgreSQL</b> — хранение настроек пользователей",
         parse_mode="HTML"
@@ -653,7 +652,7 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ─── Генерация картинок (Hugging Face FLUX) ──────────────────────────────────
+# ─── Генерация картинок (Pollinations FLUX) ──────────────────────────────────
 async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str, width: int = 1024, height: int = 1024):
     chat_id = update.effective_chat.id
     await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
@@ -682,24 +681,21 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
 
     try:
         import httpx
-        headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(
-                "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell/v1/images/generations",
-                headers=headers,
-                json={
-                    "prompt": english_prompt,
-                    "num_inference_steps": 4,
-                    "width": width,
-                    "height": height,
-                },
-            )
-            response.raise_for_status()
-            import base64
-            data = response.json()
-            image_bytes = base64.b64decode(data["data"][0]["b64_json"])
+        encoded = urllib.parse.quote(english_prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true&model=flux&seed={hash(prompt) % 10000}"
 
-        # Красивая подпись с улучшенным промптом
+        async with httpx.AsyncClient(timeout=90) as client:
+            for attempt in range(3):
+                response = await client.get(url)
+                if response.status_code == 429:
+                    import asyncio
+                    await asyncio.sleep(15)
+                    continue
+                response.raise_for_status()
+                break
+            image_bytes = response.content
+
+        # Красивая подпись
         try:
             caption_response = groq_client.chat.completions.create(
                 model=MODEL,
