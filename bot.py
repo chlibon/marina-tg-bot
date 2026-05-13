@@ -882,11 +882,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         image_prompt = user_text.lower()
         for kw in IMAGE_KEYWORDS:
             image_prompt = image_prompt.replace(kw, "")
+        # Определяем соотношение сторон ДО очистки промпта
         width, height = 1024, 1024
         if any(w in image_prompt for w in ["вертикальн", "портрет", "vertical", "portrait"]):
-            width, height = 768, 1344
+            width, height = 896, 1152
+            image_prompt = re.sub(r'вертикальн\w*|портрет', '', image_prompt)
         elif any(w in image_prompt for w in ["горизонтальн", "широк", "landscape", "horizontal"]):
-            width, height = 1344, 768
+            width, height = 1152, 896
+            image_prompt = re.sub(r'горизонтальн\w*|широк\w*', '', image_prompt)
         image_prompt = image_prompt.strip(" ,.")
         if image_prompt:
             await generate_image(update, context, image_prompt, width, height)
