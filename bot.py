@@ -673,6 +673,9 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             max_tokens=200,
         )
         english_prompt = enhanced.choices[0].message.content.strip()
+        # Если модель вернула ссылку или мусор — используем оригинал
+        if "http" in english_prompt or len(english_prompt) < 5:
+            english_prompt = prompt
     except Exception:
         english_prompt = prompt
 
