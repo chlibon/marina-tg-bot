@@ -670,7 +670,6 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
                     f"Запрос: '{prompt}'\n"
                     f"Важно: только промпт на английском, без ссылок и описаний."
                 )
-                )
             }],
             temperature=0.7,
             max_tokens=200,
