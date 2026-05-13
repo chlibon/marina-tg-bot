@@ -227,6 +227,47 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/about — о боте"
     )
 
+async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 <b>Что я умею:</b>\n\n"
+        "💬 <b>Общение и поиск</b>\n"
+        "• Отвечаю на любые вопросы\n"
+        "• Ищу актуальную информацию в интернете\n"
+        "• Помню контекст последних 20 сообщений\n\n"
+        "🎨 <b>Генерация картинок</b>\n"
+        "• <i>нарисуй / сгенерируй</i> — создаю изображение\n"
+        "• Автоматически улучшаю твой запрос\n"
+        "• Поддержка форматов: квадрат, портрет, горизонталь\n\n"
+        "🖼 <b>Распознавание фото</b>\n"
+        "• Опишу что на фото\n"
+        "• Отвечу на вопросы по изображению\n"
+        "• Работает с отправкой и цитированием фото\n\n"
+        "🎙 <b>Голосовые сообщения</b>\n"
+        "• Транскрибирую войсы в текст\n"
+        "• В группе отвечаю если начать с <i>«Марина»</i>\n"
+        "• В личке всегда транскрибирую и отвечаю\n\n"
+        "📝 <b>Пересказ</b>\n"
+        "• Пересказываю статьи по ссылке\n"
+        "• Пересказываю текст из цитаты\n"
+        "• Команда /summary или слово <i>«перескажи»</i>\n\n"
+        "⏰ <b>Напоминания</b>\n"
+        "• <i>«напомни через 30 минут...»</i>\n"
+        "• <i>«напомни завтра в 10:00...»</i>\n"
+        "• <i>«напомни 25 мая в 15:00...»</i>\n"
+        "• /reminderlist — список, /remindercancel — отмена\n\n"
+        "🎲 <b>Развлечения</b>\n"
+        "• /8ball — магический шар\n"
+        "• /random или <i>«выбери»</i> — рандомайзер\n\n"
+        "⚙️ <b>Ресурсы</b>\n"
+        "• <b>Groq</b> — Llama 3.3 70B (чат, поиск, напоминания)\n"
+        "• <b>Groq</b> — Llama 4 Scout (распознавание фото)\n"
+        "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
+        "• <b>Pollinations AI</b> — генерация картинок\n"
+        "• <b>Tavily</b> — поиск в интернете\n"
+        "• <b>PostgreSQL</b> — хранение настроек пользователей",
+        parse_mode="HTML"
+    )
+
 async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -787,6 +828,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Не удалось обработать фото.")
         return
 
+    # Что умеешь
+    if any(kw in user_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
+        await cmd_skills(update, context)
+        return
+
     # Рандомайзер через текст
     if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
         import random
@@ -987,6 +1033,7 @@ async def post_init(app):
         [
             BotCommand("start",     "Начать / главное меню"),
             BotCommand("clear",     "Очистить историю диалога"),
+            BotCommand("skills", "Что я умею и какие ресурсы использую"),
             BotCommand("reminderlist", "Активные напоминания"),
             BotCommand("remindercancel",    "Отменить напоминание"),
             BotCommand("remindertimezone",  "Установить часовой пояс для напоминаний"),
@@ -1000,6 +1047,7 @@ async def post_init(app):
     )
     await app.bot.set_my_commands(
         [
+            BotCommand("skills", "Что я умею и какие ресурсы использую"),
             BotCommand("remindertimezone",  "Установить часовой пояс для напоминаний"),
             BotCommand("reminderlist", "Активные напоминания"),
             BotCommand("remindercancel",    "Отменить напоминание"),
@@ -1023,6 +1071,7 @@ def main():
     app.add_handler(CommandHandler("clear",     cmd_clear))
     app.add_handler(CommandHandler("help",      cmd_help))
     app.add_handler(CommandHandler("about",     cmd_about))
+    app.add_handler(CommandHandler("skills", cmd_skills))
     app.add_handler(CommandHandler("reminderlist",     cmd_reminders))
     app.add_handler(CommandHandler("remindercancel",   cmd_cancel))
     app.add_handler(CommandHandler("remindertimezone", cmd_timezone))
