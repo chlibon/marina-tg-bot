@@ -268,8 +268,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <b>Groq</b> — Llama 4 Scout (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
         "• <b>Pollination AI</b> — FLUX.1-schnell (генерация картинок)\n"
-        "• <b>Tavily</b> — поиск в интернете\n"
-        "• <b>PostgreSQL</b> — хранение настроек пользователей",
+        "• <b>Tavily</b> — поиск в интернете\n",
         parse_mode="HTML"
     )
 
@@ -1006,6 +1005,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+
+    # Проверяем что это именно голосовое
+    if not update.message.voice:
+        return
 
     await load_timezone(user_id)
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
