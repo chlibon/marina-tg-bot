@@ -1117,7 +1117,76 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ─── Обработка PDF ────────────────────────────────────────────────────────────
-async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /pdf — анализирует PDF из цитаты или аргументов"""
+    question = " ".join(context.args) if context.args else ""
+
+    # Ищем PDF в цитате
+    if update.message.reply_to_message:
+        quoted = update.message.reply_to_message
+        doc = quoted.document
+        if doc and doc.file_name and doc.file_name.lower().endswith(".pdf"):
+            # Подменяем message чтобы переиспользовать handle_document логику
+            import io, httpx
+            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+            await update.message.reply_text("📄 Читаю PDF...")
+            try:
+                file = await context.bot.get_file(doc.file_id)
+                async with httpx.AsyncClient(timeout=60) as client:
+                    resp = await client.get(file.file_path)
+                    pdf_bytes = resp.content
+
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+                text_parts = []
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        text_parts.append(text)
+                pdf_text = "\n\n".join(text_parts)
+
+                if not pdf_text.strip():
+                    await update.message.reply_text("⚠️ Не удалось извлечь текст — возможно это скан.")
+                    return
+
+                words = pdf_text.split()
+                truncated = len(words) > 6000
+                if truncated:
+                    pdf_text = " ".join(words[:6000])
+
+                if question:
+                    task = f"Пользователь спрашивает: {question}\n\nОтветь на основе этого документа."
+                else:
+                    task = (
+                        "Сделай структурированный анализ этого документа:\n"
+                        "1. Краткое резюме\n"
+                        "2. Ключевые пункты\n"
+                        "3. Важные детали\n"
+                        "4. Выводы"
+                    )
+
+                response = groq_client.chat.completions.create(
+                    model=MODEL,
+                    messages=[{"role": "user", "content": f"{task}\n\n[Документ]:\n{pdf_text}"}],
+                    temperature=0.5,
+                    max_tokens=1024,
+                )
+                answer = response.choices[0].message.content.strip()
+                if truncated:
+                    answer += "\n\n⚠️ Документ большой — проанализированы первые ~10 страниц."
+                await update.message.reply_text(answer)
+            except Exception as e:
+                logger.error(f"Ошибка /pdf: {e}")
+                await update.message.reply_text("⚠️ Не удалось обработать PDF.")
+            return
+
+    await update.message.reply_text(
+        "📄 Процитируй сообщение с PDF и напиши /pdf\n"
+        "Или /pdf вопрос — чтобы задать конкретный вопрос по документу"
+    )
+
+
+
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
     bot_username = context.bot.username
@@ -1293,6 +1362,7 @@ async def post_init(app):
             BotCommand("8ball",     "Магический шар"),
             BotCommand("random",    "Выбрать случайный вариант"),
             BotCommand("summary",   "Пересказ текста или статьи"),
+            BotCommand("pdf",       "Анализ PDF — процитируй файл и напиши /pdf"),
         ],
         scope=BotCommandScopeDefault()
     )
@@ -1305,6 +1375,7 @@ async def post_init(app):
             BotCommand("8ball",     "Магический шар"),
             BotCommand("random",    "Выбрать случайный вариант"),
             BotCommand("summary",   "Пересказ текста или статьи"),
+            BotCommand("pdf",       "Анализ PDF — процитируй файл и напиши /pdf"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
@@ -1330,6 +1401,7 @@ def main():
     app.add_handler(CommandHandler("8ball",     cmd_8ball))
     app.add_handler(CommandHandler("random",    cmd_random))
     app.add_handler(CommandHandler("summary",   cmd_summary))
+    app.add_handler(CommandHandler("pdf",       cmd_pdf))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE & ~filters.Document.ALL, handle_voice))
