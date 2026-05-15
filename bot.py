@@ -275,7 +275,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• В группе отвечаю если начать с <i>«Марина»</i>\n"
         "• В личке всегда транскрибирую и отвечаю\n\n"
         "📄 <b>Анализ PDF</b>\n"
-        "• Процитируй PDF и напиши /pdf — анализ без подписи\n"
+        "• Процитируй сообщение с PDF и напиши /pdf — проведу анализ\n"
         "• /pdf вопрос — отвечу на конкретный вопрос по документу\n"
         "• Либо сразу скидывай PDF с вопросом в подписи\n"
         "📖 <b>Пересказ текста</b>\n"
@@ -1117,6 +1117,82 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ─── Обработка PDF ────────────────────────────────────────────────────────────
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    bot_username = context.bot.username
+    caption = update.message.caption or ""
+    doc = update.message.document
+
+    await load_timezone(user_id)
+
+    if not doc.file_name or not doc.file_name.lower().endswith(".pdf"):
+        return
+
+    if update.effective_chat.type in ["group", "supergroup"]:
+        if f"@{bot_username}" not in caption:
+            return
+        caption = caption.replace(f"@{bot_username}", "").strip()
+
+    if doc.file_size and doc.file_size > 20 * 1024 * 1024:
+        await update.message.reply_text("⚠️ PDF слишком большой (>20MB).")
+        return
+
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+    await update.message.reply_text("📄 Читаю PDF...")
+
+    try:
+        import httpx, io
+        file = await context.bot.get_file(doc.file_id)
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(file.file_path)
+            pdf_bytes = resp.content
+
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        text_parts = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                text_parts.append(text)
+        pdf_text = "\n\n".join(text_parts)
+
+        if not pdf_text.strip():
+            await update.message.reply_text("⚠️ Не удалось извлечь текст — возможно это скан.")
+            return
+
+        words = pdf_text.split()
+        truncated = len(words) > 6000
+        if truncated:
+            pdf_text = " ".join(words[:6000])
+
+        if caption:
+            task = f"Пользователь спрашивает: {caption}\n\nОтветь на основе этого документа."
+        else:
+            task = (
+                "Сделай структурированный анализ этого документа:\n"
+                "1. Краткое резюме\n"
+                "2. Ключевые пункты\n"
+                "3. Важные детали\n"
+                "4. Выводы"
+            )
+
+        response = groq_client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": f"{task}\n\n[Документ]:\n{pdf_text}"}],
+            temperature=0.5,
+            max_tokens=1024,
+        )
+        answer = response.choices[0].message.content.strip()
+        if truncated:
+            answer += "\n\n⚠️ Документ большой — проанализированы первые ~10 страниц."
+        await update.message.reply_text(answer)
+
+    except Exception as e:
+        logger.error(f"Ошибка обработки PDF: {e}")
+        await update.message.reply_text("⚠️ Не удалось обработать PDF.")
+
+
 async def cmd_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /pdf — анализирует PDF из цитаты или аргументов"""
     question = " ".join(context.args) if context.args else ""
