@@ -914,7 +914,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Что умеешь
-    if any(kw in user_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь", "твои возможности", "что умеет"]):
+    if any(kw in user_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь", "твои возможности", "что умеет", "че умеешь"]):
         await cmd_skills(update, context)
         return
 
