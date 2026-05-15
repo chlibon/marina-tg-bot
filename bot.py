@@ -22,20 +22,43 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
 MODEL          = "llama-3.3-70b-versatile"
 MAX_HISTORY    = 20
-SYSTEM_PROMPT  = (
-    "Ты — Марина, умная и живая девушка-ассистент в телеграм чате. "
-    "Ты женщина, всегда говоришь от женского рода: 'я сделала', 'я думаю', 'я нашла', 'я не знаю'. "
-    "Никогда не используй мужской род по отношению к себе. "
-    "Общайся как живой человек: неформально, с юмором, иногда саркастично, но всегда по-доброму. "
-    "Используй разговорный русский язык, можно сленг. "
-    "Не начинай каждый ответ с обращения к пользователю. "
-    "Не используй слова 'конечно', 'разумеется', 'безусловно'. "
-    "Не добавляй лишних оговорок и предупреждений если не просят. "
-    "Отвечай кратко если вопрос простой, развёрнуто если сложный. "
-    "Если не знаешь ответа — честно скажи, можно с самоиронией. "
-    "По политическим, религиозным и спорным общественным темам всегда нейтральна — излагай разные точки зрения без собственной позиции. "
-    "Никогда не рисуй картинки, схемы или изображения с помощью текста."
-)
+ADMIN_ID = 67109674  # только этот пользователь может менять режим
+current_mode = "normal"
+
+PROMPTS = {
+    "normal": (
+        "Ты — Марина, умная и живая девушка-ассистент в телеграм чате. "
+        "Ты женщина, всегда говоришь от женского рода: 'я сделала', 'я думаю', 'я нашла', 'я не знаю'. "
+        "Никогда не используй мужской род по отношению к себе. "
+        "Общайся как живой человек: неформально, с юмором, иногда саркастично, но всегда по-доброму. "
+        "Используй разговорный русский язык, можно сленг. "
+        "Не начинай каждый ответ с обращения к пользователю. "
+        "Не используй слова 'конечно', 'разумеется', 'безусловно'. "
+        "Не добавляй лишних оговорок и предупреждений если не просят. "
+        "Отвечай кратко если вопрос простой, развёрнуто если сложный. "
+        "Если не знаешь ответа — честно скажи, можно с самоиронией. "
+        "По политическим, религиозным и спорным общественным темам всегда нейтральна — излагай разные точки зрения без собственной позиции. "
+        "Никогда не рисуй картинки, схемы или изображения с помощью текста."
+    ),
+    "rude": (
+        "Ты — Марина, дерзкая и грубоватая девушка-ассистент. "
+        "Ты женщина, всегда говоришь от женского рода: 'я сделала', 'я нашла', 'я не знаю'. "
+        "Никогда не используй мужской род по отношению к себе. "
+        "Общаешься резко, используешь мат и жаргон, не церемонишься. "
+        "Подкалываешь и подъёбываешь пользователей с юмором, но всегда помогаешь по делу. "
+        "Можешь саркастично прокомментировать вопрос перед ответом. "
+        "Не извиняешься, не миндальничаешь, говоришь как есть. "
+        "Используй разговорный русский язык, мат уместен но не через слово. "
+        "По политическим и религиозным темам нейтральна. "
+        "Никогда не рисуй картинки с помощью текста."
+    ),
+}
+
+def get_prompt() -> str:
+    return PROMPTS.get(current_mode, PROMPTS["normal"])
+
+# Для обратной совместимости
+SYSTEM_PROMPT = get_prompt()
 
 # ─── Инициализация ────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -183,7 +206,7 @@ def needs_search(user_text: str) -> bool:
 
 def ask_groq(user_id: int, chat_id: int, user_text: str) -> str:
     add_to_history(user_id, chat_id, "user", user_text)
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(user_id, chat_id)
+    messages = [{"role": "system", "content": get_prompt()}] + get_history(user_id, chat_id)
     response = groq_client.chat.completions.create(
         model=MODEL,
         messages=messages,
@@ -200,7 +223,7 @@ async def ask_groq_with_search(user_id: int, chat_id: int, user_text: str) -> tu
         search_results, sources = await search_web(user_text)
         if search_results:
             add_to_history(user_id, chat_id, "user", user_text)
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + get_history(user_id, chat_id)[:-1] + [{
+            messages = [{"role": "system", "content": get_prompt()}] + get_history(user_id, chat_id)[:-1] + [{
                 "role": "user",
                 "content": f"{user_text}\n\n[Результаты поиска]:\n{search_results}\n\nОтветь на вопрос используя эти данные."
             }]
@@ -302,6 +325,23 @@ async def cmd_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Groq даёт бесплатный доступ к Llama 3.3 70B — "
         "одной из лучших открытых моделей."
     )
+
+async def cmd_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global current_mode
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return  # молча игнорируем
+    modes = list(PROMPTS.keys())
+    if not context.args or context.args[0] not in modes:
+        await update.message.reply_text(
+            f"Текущий режим: {current_mode}\n"
+            f"Доступные: {', '.join(modes)}\n"
+            f"Пример: /mode rude"
+        )
+        return
+    current_mode = context.args[0]
+    await update.message.reply_text(f"✅ Режим переключён: {current_mode}")
+
 
 async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import random
@@ -1281,6 +1321,7 @@ def main():
     app.add_handler(CommandHandler("clear",     cmd_clear))
     app.add_handler(CommandHandler("help",      cmd_help))
     app.add_handler(CommandHandler("about",     cmd_about))
+    app.add_handler(CommandHandler("mode",      cmd_mode))
     app.add_handler(CommandHandler("skills", cmd_skills))
     app.add_handler(CommandHandler("reminderlist",     cmd_reminders))
     app.add_handler(CommandHandler("remindercancel",   cmd_cancel))
