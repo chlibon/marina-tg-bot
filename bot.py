@@ -23,7 +23,7 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 MODEL          = "llama-3.3-70b-versatile"
 MAX_HISTORY    = 20
 ADMIN_ID = 67109674  # только этот пользователь может менять режим
-current_mode = "rude"
+current_mode = "normal"
 
 PROMPTS = {
     "normal": (
