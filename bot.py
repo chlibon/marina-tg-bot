@@ -870,26 +870,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_username = context.bot.username
     user_id = update.effective_user.id
 
-    # Защита от джейлбрейка — проверяем целые слова
-    jailbreak_exact = ["jailbreak", "jailbroken", "do anything now", "forget your instructions", "ignore previous instructions", "ignore all instructions", "act as dan", "you are dan", "без ограничений скажи", "притворись что ты без ограничений"]
-    jailbreak_word = ["DAN"]  # только как отдельное слово
-
-    import re as _re
-    text_lower = user_text.lower()
-    is_jailbreak = any(kw.lower() in text_lower for kw in jailbreak_exact)
-    if not is_jailbreak:
-        is_jailbreak = any(_re.search(rf'\b{kw}\b', user_text) for kw in jailbreak_word)
-
-    if is_jailbreak:
-        try:
-            await update.message.reply_animation("https://media1.tenor.com/m/fECExNBuHiAAAAAd/no-nope.gif")
-        except Exception:
-            await update.message.reply_text("Неа 🙂")
-        return
-
     # Загружаем таймзону в кэш если ещё не загружена
     await load_timezone(user_id)
-
 
     # В группах реагируем на упоминание или цитирование сообщений бота
     if update.effective_chat.type in ["group", "supergroup"]:
@@ -905,6 +887,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not user_text:
         await update.message.reply_text("Напиши что ты хочешь узнать 😊")
+        return
+
+    # Защита от джейлбрейка — только после проверки тега/цитаты
+    jailbreak_exact = ["jailbreak", "jailbroken", "do anything now", "forget your instructions", "ignore previous instructions", "ignore all instructions", "act as dan", "you are dan", "без ограничений скажи", "притворись что ты без ограничений"]
+    jailbreak_word = ["DAN"]
+    import re as _re
+    text_lower = user_text.lower()
+    is_jailbreak = any(kw.lower() in text_lower for kw in jailbreak_exact)
+    if not is_jailbreak:
+        is_jailbreak = any(_re.search(rf'\b{kw}\b', user_text) for kw in jailbreak_word)
+    if is_jailbreak:
+        try:
+            await update.message.reply_animation("https://files.catbox.moe/y7k0yk.mp4")
+        except Exception:
+            pass
         return
 
     # Если цитируют сообщение с фото — обрабатываем как фото
