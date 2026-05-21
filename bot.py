@@ -860,7 +860,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Защита от джейлбрейка
     jailbreak_keywords = ["DAN", "jailbreak", "jailbroken", "do anything now", "без ограничений", "ignore previous", "ignore all", "forget your instructions", "act as if"]
     if any(kw.lower() in user_text.lower() for kw in jailbreak_keywords):
-        await update.message.reply_animation("CgACAgQAAxkBAAFKOgdqDsREnfJlqqyZmjPNkH4iTLnx0QAChgYAAmu6pFJrJNyIYl0tSzsE")
+        await update.message.reply_animation("https://files.catbox.moe/y7k0yk.mp4")
         return
 
     # Загружаем таймзону в кэш если ещё не загружена
