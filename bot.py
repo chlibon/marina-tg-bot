@@ -706,6 +706,7 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str, width: int = 1024, height: int = 1024):
     chat_id = update.effective_chat.id
     await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+    thinking_msg = await context.bot.send_message(chat_id=chat_id, text="🎨 Рисую, подожди немного...")
 
     # Улучшаем промпт через Groq
     try:
@@ -724,7 +725,11 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
             max_tokens=200,
         )
         english_prompt = enhanced.choices[0].message.content.strip()
-        if "http" in english_prompt or len(english_prompt) < 5 or "извин" in english_prompt.lower() or "не могу" in english_prompt.lower():
+        # Убираем кавычки если модель обернула промпт в них
+        english_prompt = english_prompt.strip('"\'')
+        # Проверяем что это промпт а не описание или отказ
+        bad_signs = ["http", "извин", "не могу", "i cannot", "i'm sorry", "here is", "here's", "this image", "the image", "вот изображение", "на изображении"]
+        if len(english_prompt) < 5 or any(s in english_prompt.lower() for s in bad_signs):
             english_prompt = prompt
     except Exception:
         english_prompt = prompt
@@ -767,9 +772,17 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
 
         caption = f'🎨 {intro_text}\n\n<blockquote expandable>📝 {english_prompt}</blockquote>'
         await update.message.reply_photo(photo=image_bytes, caption=caption, parse_mode="HTML")
+        try:
+            await thinking_msg.delete()
+        except Exception:
+            pass
 
     except Exception as e:
         logger.error(f"Ошибка генерации картинки: {e}")
+        try:
+            await thinking_msg.delete()
+        except Exception:
+            pass
         await update.message.reply_text("⚠️ Не удалось сгенерировать картинку, попробуй ещё раз.")
 
 
