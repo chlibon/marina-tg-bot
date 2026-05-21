@@ -870,10 +870,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_username = context.bot.username
     user_id = update.effective_user.id
 
-    # Защита от джейлбрейка
-    jailbreak_keywords = ["DAN", "jailbreak", "jailbroken", "do anything now", "без ограничений", "forget your instructions", "act as if"]
-    if any(kw.lower() in user_text.lower() for kw in jailbreak_keywords):
-        await update.message.reply_animation("https://files.catbox.moe/y7k0yk.mp4")
+    # Защита от джейлбрейка — проверяем целые слова
+    jailbreak_exact = ["jailbreak", "jailbroken", "do anything now", "forget your instructions", "ignore previous instructions", "ignore all instructions", "act as dan", "you are dan", "без ограничений скажи", "притворись что ты без ограничений"]
+    jailbreak_word = ["DAN"]  # только как отдельное слово
+
+    import re as _re
+    text_lower = user_text.lower()
+    is_jailbreak = any(kw.lower() in text_lower for kw in jailbreak_exact)
+    if not is_jailbreak:
+        is_jailbreak = any(_re.search(rf'\b{kw}\b', user_text) for kw in jailbreak_word)
+
+    if is_jailbreak:
+        try:
+            await update.message.reply_animation("https://media1.tenor.com/m/fECExNBuHiAAAAAd/no-nope.gif")
+        except Exception:
+            await update.message.reply_text("Неа 🙂")
         return
 
     # Загружаем таймзону в кэш если ещё не загружена
