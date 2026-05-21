@@ -73,7 +73,7 @@ logger = logging.getLogger(__name__)
 groq_client = Groq(api_key=GROQ_API_KEY)
 REMIND_KEYWORDS  = ["напомни", "remind",]
 IMAGE_KEYWORDS   = ["нарисуй", "сгенерируй", "draw", "нарисовать", "сгенерировать"]
-SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко", "о чём", "о чем"]
+SUMMARY_KEYWORDS = ["перескажи", "пересказ", "summarize", "кратко"]
 
 # Хранилище истории: { (user_id, chat_id): [ {role, content}, ... ] }
 conversation_history: dict[tuple, list[dict]] = {}
@@ -858,7 +858,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     # Защита от джейлбрейка
-    jailbreak_keywords = ["DAN", "jailbreak", "jailbroken", "do anything now", "без ограничений", "ignore previous", "ignore all", "forget your instructions", "act as if"]
+    jailbreak_keywords = ["DAN", "jailbreak", "jailbroken", "do anything now", "без ограничений", "forget your instructions", "act as if"]
     if any(kw.lower() in user_text.lower() for kw in jailbreak_keywords):
         await update.message.reply_animation("https://files.catbox.moe/y7k0yk.mp4")
         return
