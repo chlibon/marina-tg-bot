@@ -857,6 +857,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_username = context.bot.username
     user_id = update.effective_user.id
 
+    # Защита от джейлбрейка
+    jailbreak_keywords = ["DAN", "jailbreak", "jailbroken", "do anything now", "без ограничений", "ignore previous", "ignore all", "forget your instructions", "act as if"]
+    if any(kw.lower() in user_text.lower() for kw in jailbreak_keywords):
+        await update.message.reply_animation("CgACAgQAAxkBAAFKOgdqDsREnfJlqqyZmjPNkH4iTLnx0QAChgYAAmu6pFJrJNyIYl0tSzsE")
+        return
+
     # Загружаем таймзону в кэш если ещё не загружена
     await load_timezone(user_id)
 
