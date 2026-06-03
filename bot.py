@@ -1151,7 +1151,7 @@ async def post_init(app):
             BotCommand("about",              "О боте"),
             BotCommand("8ball",              "Магический шар"),
             BotCommand("random",             "Выбрать случайный вариант"),
-            BotCommand("summary",            "Пересказ текста или статьи"),
+            BotCommand("summary",            "Пересказ текста"),
             BotCommand("pdf",                "Прочитать PDF"),
         ],
         scope=BotCommandScopeDefault()
@@ -1162,7 +1162,7 @@ async def post_init(app):
             BotCommand("reminder",           "Напоминания"),
             BotCommand("8ball",              "Магический шар"),
             BotCommand("random",             "Выбрать случайный вариант"),
-            BotCommand("summary",            "Пересказ текста или статьи"),
+            BotCommand("summary",            "Пересказ текста"),
             BotCommand("pdf",                "Прочитать PDF"),
         ],
         scope=BotCommandScopeAllGroupChats()
