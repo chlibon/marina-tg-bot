@@ -951,6 +951,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_skills(update, context)
         return
 
+    # Триггеры для команд через текст
+    if any(kw in user_text.lower() for kw in ["перескажи", "пересказ", "кратко перескажи", "summarize"]):
+        await cmd_summary(update, context)
+        return
+
+    # PDF — через ключевые слова или если в цитате есть PDF файл
+    has_pdf_in_quote = (
+        update.message.reply_to_message is not None and
+        update.message.reply_to_message.document is not None and
+        update.message.reply_to_message.document.file_name and
+        update.message.reply_to_message.document.file_name.lower().endswith(".pdf")
+    )
+    if has_pdf_in_quote or any(kw in user_text.lower() for kw in ["прочитай пдф", "читай пдф", "что в пдф", "что в pdf", "прочитай pdf", "анализируй"]):
+        await cmd_pdf(update, context)
+        return
+
+    # Список напоминаний
+    if any(kw in user_text.lower() for kw in ["мои напоминания", "список напоминаний", "покажи напоминания"]):
+        await cmd_reminders(update, context)
+        return
+
+    # Отмена напоминания
+    if any(kw in user_text.lower() for kw in ["отмени напоминание", "удали напоминание", "отменить напоминание"]):
+        nums = re.findall(r'\d+', user_text)
+        context.args = [nums[0]] if nums else []
+        await cmd_cancel(update, context)
+        return
+
     # Рандомайзер через текст
     if any(kw in user_text.lower() for kw in ["выбери из", "выбери", "выбирай"]):
         import random
