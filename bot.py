@@ -991,7 +991,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             clean_text = re.sub(name, "", clean_text, flags=re.IGNORECASE).strip(" ,.")
         # Проверяем число в начале — сколько выбрать (поддерживаем "2", "2:", "2 ")
         count = 1
-        num_match = re.match(r'^(\d+)\s*[:\s]\s*', clean_text)
+        num_match = re.match(r'^(\d+)\s*[-:\s]\s*', clean_text)
         if num_match:
             count = int(num_match.group(1))
             clean_text = clean_text[num_match.end():].strip()
