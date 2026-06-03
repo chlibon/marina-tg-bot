@@ -1516,7 +1516,7 @@ def main():
     app.add_handler(MessageHandler(filters.VOICE & ~filters.Document.ALL, handle_voice))
     app.add_handler(MessageHandler(filters.Document.PDF, handle_document))
 
-    logger.info("Бот запущен...")
+    logger.info("Бот запущен....")
     app.run_polling(drop_pending_updates=True)
 
 
