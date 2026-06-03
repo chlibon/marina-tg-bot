@@ -312,6 +312,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Команда /summary\n\n"
 
         "⏰ <b>Напоминания</b>\n"
+        "• Напомню про важные дела\n"
         "• <i>Марина напомни через 30 минут...</i>\n"
         "• <i>Марина напомни завтра в 10:00...</i>\n"
         "• <i>Марина напомни 25 мая в 15:00...</i>\n"
@@ -500,6 +501,21 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reminder_text = jobs[num].data['reminder_text']
     jobs[num].schedule_removal()
     await update.message.reply_text(f"✅ Напоминание отменено: {reminder_text}")
+
+async def cmd_reminder_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "⏰ <b>Напоминания</b>\n\n"
+        "<b>В первый раз <b>обязательно</b> установи правильный часовой пояс:</b>\n"
+        "/remindertimezone [число] — Москва = 3, Екатеринбург = 5, Новосибирск = 7, Владивосток = 10\n\n"
+        "<b>Как создать:</b>\n"
+        "• <i>напомни <b>через 30 минут</b> выключить духовку</i>\n"
+        "• <i>напомни <b>завтра в 10:00</b> встреча</i>\n"
+        "• <i>напомни <b>25 мая в 15:00</b> день рождения</i>\n\n"
+        "<b>Как управлять:</b>\n"
+        "• /reminderlist или <i>Марина список напоминаний</i> — показать список напоминаний\n"
+        "• /remindercancel 1 или <i>Марина отмени напоминание [число]</i> — отмена конкретного напоминания, посмотреть [число] в /reminderlist\n",
+        parse_mode="HTML"
+    )
 
 
 # ─── Напоминания ──────────────────────────────────────────────────────────────
@@ -1135,9 +1151,7 @@ async def post_init(app):
             BotCommand("start",              "Начать / главное меню"),
             BotCommand("clear",              "Очистить историю диалога"),
             BotCommand("skills",             "Что я умею"),
-            BotCommand("reminderlist",       "Активные напоминания"),
-            BotCommand("remindercancel",     "Отменить напоминание"),
-            BotCommand("remindertimezone",   "Установить часовой пояс"),
+            BotCommand("reminder",           "Напоминания — создать, список, отмена"),
             BotCommand("help",               "Помощь"),
             BotCommand("about",              "О боте"),
             BotCommand("8ball",              "Магический шар"),
@@ -1177,6 +1191,7 @@ def main():
     app.add_handler(CommandHandler("mode",               cmd_mode))
     app.add_handler(CommandHandler("restartbot",         cmd_restart))
     app.add_handler(CommandHandler("skills",             cmd_skills))
+    app.add_handler(CommandHandler("reminder",           cmd_reminder_help))
     app.add_handler(CommandHandler("reminderlist",       cmd_reminders))
     app.add_handler(CommandHandler("remindercancel",     cmd_cancel))
     app.add_handler(CommandHandler("remindertimezone",   cmd_timezone))
