@@ -1433,6 +1433,8 @@ async def cmd_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for kw in trigger_words:
                     if text_lower.startswith(kw):
                         clean_text = text[len(kw):].strip(" ,!")
+                    if not clean_text:
+                        return
                         break
                 await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
                 if any(kw in clean_text.lower() for kw in ["что ты умеешь", "что умеешь", "что можешь", "что ты можешь"]):
