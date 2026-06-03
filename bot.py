@@ -1164,9 +1164,7 @@ async def post_init(app):
     await app.bot.set_my_commands(
         [
             BotCommand("skills",             "Что я умею"),
-            BotCommand("remindertimezone",   "Установить часовой пояс"),
-            BotCommand("reminderlist",       "Активные напоминания"),
-            BotCommand("remindercancel",     "Отменить напоминание"),
+            BotCommand("reminder",           "Напоминания — создать, список, отмена"),
             BotCommand("8ball",              "Магический шар"),
             BotCommand("random",             "Выбрать случайный вариант"),
             BotCommand("summary",            "Пересказ текста или статьи"),
