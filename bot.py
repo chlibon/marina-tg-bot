@@ -398,7 +398,7 @@ async def cmd_8ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Мои источники говорят нет 🔴", "Перспективы не очень 🔴", "Очень сомнительно 🔴",
     ]
     if not context.args:
-        await update.message.reply_text("🎱 Задай вопрос! Например: /8ball стоит ли мне сделать бочку?")
+        await update.message.reply_text("🎱 Задай вопрос вселенной!\n\n Пиши /8ball + твой вопрос")
         return
     question = " ".join(context.args)
     answer = random.choice(answers)
@@ -687,7 +687,7 @@ async def cmd_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📝 Перескажу содержание статьи на сайте или текста в тг:\n\n"
         "• <b>Марина перескажи</b> + цитата сообщения или ссылки\n\n"
         "• Процитируй сообщение с текстом или ссылкой и напиши: /summary\n\n"
-        "• Или в новом сообщении добавь ссылку: /summary https://ссылка\n"
+        "• Или отправь сообщение:\n /summary + ссылка\n"
         "⚠️ <b>Не сработает, если на сайте есть пейволл или защита от ботов</b>",
         parse_mode="HTML"
     )
@@ -836,8 +836,12 @@ async def cmd_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     await update.message.reply_text(
-        "📄 Процитируй сообщение с PDF и напиши /pdf\n"
-        "Или /pdf вопрос — чтобы задать конкретный вопрос по документу"
+        "📄 Взаимодействие с PDF:\n\n"
+        "• Отправь PDF с подписью <b>Марина прочитай</b>\n"
+        "  Или процитируй PDF в чате и напиши /pdf - сделаю анализ текста документа \n\n"
+        "• Отправь PDF с подписью <b>Марина [вопрос]</b>\n"
+        "  Или процитируй PDF и напиши /pdf [вопрос] - отвечу на вопрос по содержанию документа",
+        parse_mode="HTML"
     )
 
 
