@@ -986,6 +986,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for kw in ["выбери из", "выбери", "выбирай"]:
             clean_text = re.sub(kw, "", clean_text, flags=re.IGNORECASE)
         clean_text = clean_text.strip(" ,.")
+        # Проверяем число в начале — сколько выбрать
+        count = 1
+        num_match = re.match(r'^(\d+)\s*', clean_text)
+        if num_match:
+            count = int(num_match.group(1))
+            clean_text = clean_text[num_match.end():].strip()
         options = [o.strip() for o in re.split(r'[,]', clean_text) if o.strip()]
         options = [o for o in options if re.search(r'[a-zA-Zа-яА-ЯёЁ0-9]', o)]
         if len(options) >= 2:
@@ -995,8 +1001,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Если честно,", "Окей, пусть будет", "Я за", "Мой выбор —",
             ]
             phrase = random.choice(phrases)
-            chosen = random.choice(options)
-            await update.message.reply_text(f"🎲 {phrase} {chosen}!")
+            if count == 1:
+                chosen = random.choice(options)
+                await update.message.reply_text(f"🎲 {phrase} {chosen}!")
+            else:
+                count = min(count, len(options))
+                chosen = random.sample(options, count)
+                result = "\n".join(f"{i+1}. {c}" for i, c in enumerate(chosen))
+                await update.message.reply_text(f"🎲 Выбираю {count} из {len(options)}...\n\n{result}")
             return
         else:
             await update.message.reply_text(
