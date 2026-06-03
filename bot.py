@@ -313,12 +313,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         "⏰ <b>Напоминания</b>\n"
         "• Напомню про важные дела\n"
-        "• <i>Марина напомни через 30 минут...</i>\n"
-        "• <i>Марина напомни завтра в 10:00...</i>\n"
-        "• <i>Марина напомни 25 мая в 15:00...</i>\n"
-        "• <i>Марина список напоминаний</i> или <i>/reminderlist</i> — список напоминаний\n"
-        "• <i>Марина отмени напоминание [число]</i> или <i>/remindercancel [число]</i> — отменить определенное\n"
-        "• /remindertimezone — установить часовой пояс\n\n"
+        "• Команда /reminder\n\n"
 
         "🎲 <b>Рандомайзер</b>\n"
         "• Выберу один или несколько случайных вариантов из предложенных\n"
@@ -482,7 +477,7 @@ async def cmd_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             time_str = f"через {minutes} мин"
         text += f"{i}. {job.data['reminder_text']} — {time_str}\n"
-    text += "\nЧтобы отменить напиши /remindercancel #"
+    text += "\nЧтобы отменить напиши /remindercancel [число]"
     await update.message.reply_text(text)
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -513,7 +508,7 @@ async def cmd_reminder_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <i>напомни <b>25 мая в 15:00</b> день рождения</i>\n\n"
         "<b>Как управлять:</b>\n"
         "• /reminderlist или <i>Марина список напоминаний</i> — показать список напоминаний\n"
-        "• /remindercancel 1 или <i>Марина отмени напоминание [число]</i> — отмена конкретного напоминания, посмотреть [число] в /reminderlist\n",
+        "• /remindercancel [число] или <i>Марина отмени напоминание [число]</i> — отмена конкретного напоминания, посмотреть [число] в /reminderlist\n",
         parse_mode="HTML"
     )
 
