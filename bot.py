@@ -412,7 +412,7 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• <i>Марина выбери</i> [вариант1], [вариант2], [вариант3] - выберу одно\n"
             "• <i>Марина выбери [число]</i> [вариант1], [вариант2], [вариант3] - выберу несколько\n"
             "• Или /random [вариант1], [вариант2], [вариант3]",
-            parse_mode="HTML
+            parse_mode="HTML"
         )
         return
     text = " ".join(context.args)
