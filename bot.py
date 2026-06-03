@@ -443,7 +443,7 @@ async def cmd_timezone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🕐 Твой часовой пояс: UTC+{current}\n\n"
             "Чтобы изменить напиши /remindertimezone #\n"
-            "Примеры:\n Москва = 3,\n Екатеринбург = 5,\n Новосибирск = 7,\n Владивосток = 10"
+            "Примеры:\n Москва = 3,\n Уфа = 5,\n Новосибирск = 7,\n Владивосток = 10"
         )
         return
     try:
@@ -501,14 +501,15 @@ async def cmd_reminder_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "⏰ <b>Напоминания</b>\n\n"
         "<b>В первый раз <b>обязательно</b> установи правильный часовой пояс:</b>\n"
-        "/remindertimezone [число] — Москва = 3, Екатеринбург = 5, Новосибирск = 7, Владивосток = 10\n\n"
+        "/remindertimezone [число] — Москва = 3, Уфа = 5, Новосибирск = 7, Владивосток = 10\n\n"
         "<b>Как создать:</b>\n"
+        "• <i>напомни <b>через 5 секунд</b> включить духовку</i>\n"
         "• <i>напомни <b>через 30 минут</b> выключить духовку</i>\n"
         "• <i>напомни <b>завтра в 10:00</b> встреча</i>\n"
         "• <i>напомни <b>25 мая в 15:00</b> день рождения</i>\n\n"
         "<b>Как управлять:</b>\n"
-        "• /reminderlist или <i>Марина список напоминаний</i> — показать список напоминаний\n"
-        "• /remindercancel [число] или <i>Марина отмени напоминание [число]</i> — отмена конкретного напоминания, посмотреть [число] в /reminderlist\n",
+        "• /reminderlist или <b><i>Марина список напоминаний</i></b> — показать список напоминаний\n"
+        "• /remindercancel [число] или <b><i>Марина отмени напоминание [число]</i></b> — отмена конкретного напоминания, посмотреть <b><i>[число]</i></b> в /reminderlist\n",
         parse_mode="HTML"
     )
 
@@ -1145,25 +1146,25 @@ async def post_init(app):
         [
             BotCommand("start",              "Начать / главное меню"),
             BotCommand("clear",              "Очистить историю диалога"),
-            BotCommand("skills",             "Что я умею"),
-            BotCommand("reminder",           "Напоминания — создать, список, отмена"),
+            BotCommand("skills",             "¿Что я умею?"),
+            BotCommand("reminder",           "Напоминания"),
             BotCommand("help",               "Помощь"),
             BotCommand("about",              "О боте"),
             BotCommand("8ball",              "Магический шар"),
             BotCommand("random",             "Выбрать случайный вариант"),
             BotCommand("summary",            "Пересказ текста или статьи"),
-            BotCommand("pdf",                "Анализ PDF"),
+            BotCommand("pdf",                "Прочитать PDF"),
         ],
         scope=BotCommandScopeDefault()
     )
     await app.bot.set_my_commands(
         [
-            BotCommand("skills",             "Что я умею"),
-            BotCommand("reminder",           "Напоминания — создать, список, отмена"),
+            BotCommand("skills",             "¿Что я умею?"),
+            BotCommand("reminder",           "Напоминания"),
             BotCommand("8ball",              "Магический шар"),
             BotCommand("random",             "Выбрать случайный вариант"),
             BotCommand("summary",            "Пересказ текста или статьи"),
-            BotCommand("pdf",                "Анализ PDF"),
+            BotCommand("pdf",                "Прочитать PDF"),
         ],
         scope=BotCommandScopeAllGroupChats()
     )
