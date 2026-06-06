@@ -150,7 +150,7 @@ def add_to_history(user_id: int, chat_id: int, role: str, content: str):
     if len(history) > MAX_HISTORY:
         conversation_history[(user_id, chat_id)] = history[-MAX_HISTORY:]
 
-async def search_youtube(query: str, max_results: int = 5) -> list[dict]:
+async def search_youtube(query: str, max_results: int = 3) -> list[dict]:
     """Ищет видео на YouTube через Data API v3"""
     if not YOUTUBE_API_KEY:
         return []
