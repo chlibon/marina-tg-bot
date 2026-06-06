@@ -1210,7 +1210,6 @@ def main():
     app.add_handler(CommandHandler("clear",              cmd_clear))
     app.add_handler(CommandHandler("help",               cmd_help))
     app.add_handler(CommandHandler("about",              cmd_about))
-    app.add_handler(CommandHandler("mode",               cmd_mode))
     app.add_handler(CommandHandler("restartbot",         cmd_restart))
     app.add_handler(CommandHandler("skills",             cmd_skills))
     app.add_handler(CommandHandler("reminder",           cmd_reminder_help))
