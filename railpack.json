@@ -1,0 +1,3 @@
+{
+  "aptPackages": ["libpq-dev"]
+}
