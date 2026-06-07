@@ -724,7 +724,7 @@ def get_photo_prompt(caption: str) -> str:
     elif any(kw in cl for kw in ["прочитай", "текст", "ocr", "что написано", "читай", "распознай текст", "извлеки текст"]):
         return "Извлеки и выведи весь текст с этого изображения дословно. Только чистый текст без LaTeX, markdown и спецсимволов. Если текста нет — скажи об этом."
     elif any(kw in cl for kw in ["объекты", "что это", "что на фото", "что здесь", "перечисли", "найди объекты", "определи объекты"]):
-         return "Опиши что на фото в 1-2 предложениях на русском. Без markdown, заголовков, списков и звёздочек. Только простой текст."
+         return "Коротко опиши что на фото — 1-2 предложения, только то что реально видишь, без домыслов и предположений. Пиши как живой человек на русском."
     elif caption:
         return caption
     else:
@@ -736,10 +736,13 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = groq_client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-            {"type": "text", "text": prompt}
-        ]}],
+        messages=[
+            {"role": "system", "content": "Отвечай только простым текстом без markdown, звёздочек, решёток и списков."},
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                {"type": "text", "text": prompt}
+            ]}
+        ],
         max_tokens=1024,
         temperature=0.1,
     )
