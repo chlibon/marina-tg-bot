@@ -1,8 +1,3 @@
-<<<<<<< HEAD
 {
   "aptPackages": ["libpq-dev"]
-=======
-{
-  "aptPackages": ["libpq-dev"]
->>>>>>> 012db2350f4327bd19591b46a437c8688f38065c
 }
