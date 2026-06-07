@@ -736,14 +736,12 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = groq_client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[...],
-        max_tokens=1024,
-        temperature=0.1,
         messages=[{"role": "user", "content": [
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
             {"type": "text", "text": prompt}
         ]}],
         max_tokens=1024,
+        temperature=0.1,
     )
     await update.message.reply_text(response.choices[0].message.content)
 
