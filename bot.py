@@ -735,7 +735,7 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
     import base64
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = groq_client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model="meta-llama/llama-4-maverick-17b-128e-instruct",
         messages=[
             {"role": "system", "content": "Отвечай только простым текстом без markdown, звёздочек, решёток и списков."},
             {"role": "user", "content": [
