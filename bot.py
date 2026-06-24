@@ -349,7 +349,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         "⚙️ <b>Ресурсы</b>\n"
         "• <b>Groq</b> — Llama 3.3 70B (чат и поиск)\n"
-        "• <b>Groq</b> — Llama 4 Scout (распознавание фото)\n"
+        "• <b>Groq</b> — Llama 4 Maverick (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
         "• <b>Tavily</b> — поиск в интернете\n"
         "• <b>PostgreSQL</b> — хранение настроек",
