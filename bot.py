@@ -747,9 +747,9 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
         temperature=0.1,
     )
     import re
-content = response.choices[0].message.content
-content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
-await update.message.reply_text(content)
+    content = response.choices[0].message.content
+    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+    await update.message.reply_text(content)
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
