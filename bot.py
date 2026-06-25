@@ -349,7 +349,7 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         "⚙️ <b>Ресурсы</b>\n"
         "• <b>Groq</b> — Llama 3.3 70B (чат и поиск)\n"
-        "• <b>Groq</b> — Qwen/Qwen3.6-27b (распознавание фото)\n"
+        "• <b>Groq</b> — Llama-4 Scout (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
         "• <b>Tavily</b> — поиск в интернете\n"
         "• <b>PostgreSQL</b> — хранение настроек",
@@ -735,7 +735,7 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
     import base64
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = groq_client.chat.completions.create(
-        model="qwen/qwen3.6-27b",
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
         messages=[
             {"role": "system", "content": "Отвечай только простым текстом без markdown, звёздочек, решёток и списков."},
             {"role": "user", "content": [
