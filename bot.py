@@ -573,7 +573,7 @@ def parse_reminder(text: str, user_id: int) -> dict | None:
             today = now.date()
             target = datetime(today.year, today.month, today.day, hour, minute)
             if target <= now:
-                target = datetime(today.year, today.month, today.day + 1, hour, minute)
+                target = datetime(today.year, today.month, today.day, hour, minute) + timedelta(days=1)
             seconds = int((target - now).total_seconds())
 
     if seconds is None:
