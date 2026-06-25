@@ -732,7 +732,9 @@ def get_photo_prompt(caption: str) -> str:
 
 async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
     """Анализирует фото через Llama 4 Vision"""
-    import base64
+    import base64, re
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = groq_client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -746,9 +748,11 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
         max_tokens=1024,
         temperature=0.1,
     )
-    import re
     content = response.choices[0].message.content
     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+    # Добавляем в историю чтобы follow-up вопросы работали
+    add_to_history(user_id, chat_id, "user", f"[Фото]: {prompt}")
+    add_to_history(user_id, chat_id, "assistant", content)
     await update.message.reply_text(content)
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
