@@ -1003,6 +1003,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Цитата с фото
     if update.message.reply_to_message and update.message.reply_to_message.photo:
+        if any(kw in user_text.lower() for kw in SUMMARY_KEYWORDS):
+            caption = update.message.reply_to_message.caption or ""
+            if caption:
+                await summarize_text(update, caption)
+            else:
+                await update.message.reply_text("В сообщении нет текста для пересказа.")
+            return
         quoted_photo = update.message.reply_to_message.photo[-1]
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         try:
