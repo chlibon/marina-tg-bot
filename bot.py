@@ -21,7 +21,7 @@ DATABASE_URL   = os.getenv("DATABASE_URL", "")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
-MODEL          = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 MAX_HISTORY    = 20
 ADMIN_ID = 67109674
 current_mode = "normal"
