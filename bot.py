@@ -617,11 +617,13 @@ async def summarize_text(update: Update, text: str):
     try:
         response = groq_client.chat.completions.create(
             model=MODEL,
-            messages=[{"role": "user", "content": f"Сделай краткий пересказ следующего текста на русском языке. Выдели главные мысли, факты и выводы. Отвечай кратко и по делу:\n\n{text}"}],
+            messages=[{"role": "user", "content": f"Сделай краткий пересказ следующего текста на русском языке. Выдели главные мысли, факты и выводы. Отвечай кратко и по делу. Не добавляй заголовок в начале ответа:\n\n{text}"}],
             temperature=0.5, max_tokens=1024,
         )
-        summary = response.choices[0].message.content.strip()
-        await update.message.reply_text(f"📝 Ну, значит, смотри:\n\n{summary}")
+    summary = response.choices[0].message.content.strip()
+        import re
+        summary = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', summary)
+        await update.message.reply_text(f"📝 Ну, значит, смотри:\n\n{summary}", parse_mode="HTML")
     except Exception as e:
         logger.error(f"Ошибка пересказа: {e}")
         await update.message.reply_text("⚠️ Не удалось сделать пересказ, попробуй ещё раз.")
