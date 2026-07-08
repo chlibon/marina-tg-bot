@@ -911,6 +911,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 file=("voice.ogg", f, "audio/ogg"),
                 model="whisper-large-v3",
                 response_format="text",
+                temperature=0.0,
             )
         _os.unlink(tmp_path)
         text = (transcription if isinstance(transcription, str) else transcription.text).strip()
