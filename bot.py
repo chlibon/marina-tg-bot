@@ -350,8 +350,8 @@ async def cmd_skills(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Команда /8ball\n\n"
 
         "⚙️ <b>Ресурсы</b>\n"
-        "• <b>Groq</b> — Llama 3.3 70B (чат и поиск)\n"
-        "• <b>Groq</b> — Llama-4 Scout (распознавание фото)\n"
+        "• <b>Groq</b> — GPT OSS 120B (чат и поиск)\n"
+        "• <b>Groq</b> — Qwen 3.6 27B (распознавание фото)\n"
         "• <b>Groq</b> — Whisper Large v3 (транскрипция войсов)\n"
         "• <b>Tavily</b> — поиск в интернете\n"
         "• <b>PostgreSQL</b> — хранение настроек",
@@ -734,13 +734,13 @@ def get_photo_prompt(caption: str) -> str:
         return "Опиши что на этом фото подробно на русском языке."
 
 async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
-    """Анализирует фото через Llama 4 Vision"""
+    """Анализирует фото через Qwen3.6-27b Vision"""
     import base64, re
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     response = groq_client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model="qwen/qwen3.6-27b",
         messages=[
             {"role": "system", "content": "Отвечай только простым текстом без markdown, звёздочек, решёток и списков."},
             {"role": "user", "content": [
