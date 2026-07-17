@@ -742,7 +742,7 @@ async def analyze_photo_bytes(image_bytes: bytes, prompt: str, update: Update):
     response = groq_client.chat.completions.create(
         model="qwen/qwen3.6-27b",
         messages=[
-            {"role": "system", "content": "Отвечай только простым текстом без markdown, звёздочек, решёток и списков."},
+            {"role": "system", "content": "Отвечай только простым текстом без markdown, звёздочек, решёток и списков. Описывай только то, что чётко видно на изображении. Если что-то неясно — так и скажи, не додумывай количество объектов, детали или контекст."},
             {"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
                 {"type": "text", "text": prompt}
